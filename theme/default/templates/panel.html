@@ -9,13 +9,13 @@
         <link rel="stylesheet" href="{{ url_for('static', filename='main.css') }}" />
         <link rel="stylesheet" href="{{ url_for('static', filename='panel.css') }}" />
         <link rel="stylesheet" href="{{ url_for('static', filename='panel_plugin_card.css') }}" />
+        {% if c.page.background %}
         <style>
             body {
-                background: url('{{ c.page.background }}') no-repeat center center fixed;
-                background-size: cover;
-                padding: 20px;
+                background-image: url('{{ c.page.background }}');
             }
         </style>
+        {% endif %}
         <script src="{{ url_for('static', filename='panel.js') }}"></script>
     </head>
 
@@ -26,6 +26,7 @@
                 &nbsp;
                 <div class="panel-actions">
                     <button class="btn btn-primary" id="refresh-btn">刷新数据</button>
+                    <a href="/admin/"><button class="btn btn-primary" type="button">数据管理</button></a>
                     <a href="/"><button class="btn btn-secondary">查看前台</button></a>
                     <button class="btn btn-danger" id="logout-btn">退出登录</button>
                 </div>

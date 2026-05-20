@@ -8,12 +8,13 @@
         <link rel="icon" href="{{ c.page.favicon }}" />
         <link rel="stylesheet" href="{{ url_for('static', filename='main.css') }}" />
         <link rel="stylesheet" href="{{ url_for('static', filename='login.css') }}" />
+        {% if c.page.background %}
         <style>
             body {
-                background: url('{{ c.page.background }}') no-repeat center center fixed;
-                background-size: cover;
+                background-image: url('{{ c.page.background }}');
             }
         </style>
+        {% endif %}
     </head>
 
     <body>

@@ -1,56 +1,60 @@
-/* Plugin Admin Cards */
+/* ===== Plugin Admin Cards ===== */
 .plugin-card {
-    position: relative;
+  position: relative;
 }
 
 .plugin-badge {
-    font-size: 12px;
-    background-color: var(--secondary-color);
-    color: white;
-    padding: 2px 8px;
-    border-radius: 10px;
-    margin-left: 10px;
-    vertical-align: middle;
+  font-size: 11px;
+  background: var(--accent);
+  color: #fff;
+  padding: 2px 10px;
+  border-radius: 10px;
+  margin-left: 10px;
+  vertical-align: middle;
+  font-weight: 500;
 }
 
 .plugin-card-content {
-    margin-top: 10px;
+  margin-top: 12px;
 }
 
-/* Plugin Card Form Styles */
 .plugin-card input[type="text"],
 .plugin-card input[type="number"],
 .plugin-card input[type="password"],
 .plugin-card select,
 .plugin-card textarea {
-    width: 100%;
-    padding: 8px 10px;
-    margin: 8px 0;
-    display: inline-block;
-    border: 1px solid var(--border-color);
-    border-radius: 4px;
-    box-sizing: border-box;
-    background-color: rgba(255, 255, 255, 0.8);
+  width: 100%;
+  padding: 8px 12px;
+  margin: 6px 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-sizing: border-box;
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  font-size: 14px;
+  transition: border-color var(--transition);
 }
 
 .plugin-card textarea {
-    min-height: 100px;
-    resize: vertical;
+  min-height: 100px;
+  resize: vertical;
 }
 
 .plugin-card label {
-    font-weight: 500;
-    margin-bottom: 5px;
-    display: block;
+  font-weight: 600;
+  font-size: 0.9em;
+  margin-bottom: 4px;
+  display: block;
+  color: var(--text-secondary);
 }
 
 .plugin-card .form-group {
-    margin-bottom: 15px;
+  margin-bottom: 14px;
 }
 
 .plugin-card .form-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 10px;
-    margin-top: 15px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 14px;
 }

@@ -31,7 +31,7 @@ from pywintypes import error as pywinerror  # type: ignore
 # 服务地址, 末尾同样不带 /
 SERVER: str = 'http://localhost:9010'
 # 密钥
-SECRET: str = 'wyf9test'
+SECRET: str = 'PASSWORD'
 # 设备标识符，唯一 (它也会被包含在 api 返回中, 不要包含敏感数据)
 DEVICE_ID: str = 'device-1'
 # 前台显示名称
@@ -64,7 +64,7 @@ DEBUG: bool = False
 # 代理地址 (<http/socks>://host:port), 设置为空字符串禁用
 PROXY: str = ''
 # 是否启用媒体信息获取
-MEDIA_INFO_ENABLED: bool = True
+MEDIA_INFO_ENABLED: bool = False
 # 媒体信息显示模式: 'prefix' - 作为前缀添加到当前窗口名称, 'standalone' - 使用独立设备
 MEDIA_INFO_MODE: str = 'standalone'
 # 独立设备模式下的设备ID (仅当 MEDIA_INFO_MODE = 'standalone' 时有效)

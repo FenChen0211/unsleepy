@@ -37,6 +37,7 @@ try:
     import utils as u
     from data import Data as data_init
     import plugin as pl
+    import admin as admin_module
 except:
     print(f'''
 Import module Failed!
@@ -123,6 +124,8 @@ try:
         app=app
     )
     p.load_plugins()
+
+    admin_module.init_admin(app, c)
 
 except KeyboardInterrupt:
     l.info('Interrupt init, quitting')

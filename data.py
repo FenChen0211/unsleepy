@@ -1,6 +1,6 @@
 # coding: utf-8
 
-from datetime import datetime
+from datetime import datetime, timezone as dt_timezone
 from logging import getLogger
 from threading import Thread
 from time import sleep, time
@@ -10,7 +10,7 @@ from io import BytesIO
 from werkzeug.security import safe_join
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import JSON, Integer, Float, String, Boolean, Text
+from sqlalchemy import JSON, Integer, Float, String, Boolean, Text, DateTime
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.exc import SQLAlchemyError
 from objtyping import to_primitive
@@ -95,6 +95,19 @@ class _PluginData(db.Model):
     '''插件 id'''
     data: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
     '''插件数据'''
+
+
+class _UsageLog(db.Model):
+    '''
+    使用记录日志
+    '''
+    __tablename__ = 'usage_log'
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    timestamp: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(dt_timezone.utc), nullable=False)
+    app_name: Mapped[str] = mapped_column(String(LIMIT), nullable=False)
+    device_name: Mapped[str] = mapped_column(String(LIMIT), nullable=False)
+    duration: Mapped[int] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(dt_timezone.utc), nullable=False)
 
 
 # -----
@@ -359,21 +372,30 @@ class Data:
             with self._app.app_context():
                 device = _DeviceStatusData.query.filter_by(id=id).first()
                 if not id:
-                    # 验证设备 id 不为空
                     raise u.APIUnsuccessful(400, 'device id cannot be empty!')
                 if not device:
-                    # 在创建时验证必填字段 (显示名称不能为空)
                     if not show_name:
                         raise u.APIUnsuccessful(400, 'device show_name cannot be empty!')
                     device = _DeviceStatusData()
                     device.id = id
                     db.session.add(device)
+                old_status = device.status
                 device.show_name = show_name or device.show_name
                 device.using = using if using is not None else device.using
                 device.status = status or device.status
                 device.fields = u.deep_merge_dict(device.fields, fields)
                 db.session.commit()
                 self.last_updated = time()
+
+                if status and status != old_status and device.using:
+                    l.debug(f'[usage_log] app changed: {old_status} -> {status} on {device.show_name}')
+                    log = _UsageLog(
+                        timestamp=datetime.now(dt_timezone.utc),
+                        app_name=status,
+                        device_name=device.show_name or id
+                    )
+                    db.session.add(log)
+                    db.session.commit()
         except SQLAlchemyError as e:
             self._throw(e)
 
