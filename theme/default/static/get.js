@@ -359,3 +359,9 @@ async function update() {
         await sleep(refresh_time);
     }
 }
+
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function() {
+        navigator.serviceWorker.register('/sw.js').catch(function() {});
+    });
+}

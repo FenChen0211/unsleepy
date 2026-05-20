@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ page_title }}</title>
+    <link rel="icon" href="{{ page_favicon }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='main.css') }}">
+    {% if page_background %}
+    <style>body { background-image: url('{{ page_background }}'); }</style>
+    {% endif %}
+    <script src="{{ url_for('static', filename='chart.min.js') }}"></script>
+</head>
+<body>
+    <div class="container" style="max-width: 800px;">
+        <div class="card" style="text-align: center;">
+            <h1 style="font-size: 2em; margin-bottom: 4px;">2026 年度报告</h1>
+            <p style="color: var(--text-secondary);" id="annual-subtitle">加载中...</p>
+        </div>
+
+        <div class="card">
+            <h2 style="text-align: center;">年度概览</h2>
+            <div id="annual-overview" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px; text-align: center;">
+                <div><span style="font-size: 2em; color: var(--accent);" id="ov-total-hours">--</span><br/><span style="color: var(--text-secondary); font-size: 0.85em;">总小时</span></div>
+                <div><span style="font-size: 2em; color: #91cc75;" id="ov-active-days">--</span><br/><span style="color: var(--text-secondary); font-size: 0.85em;">活跃天数</span></div>
+                <div><span style="font-size: 2em; color: #fac858;" id="ov-top-app">--</span><br/><span style="color: var(--text-secondary); font-size: 0.85em;">最常用</span></div>
+                <div><span style="font-size: 2em; color: #ee6666;" id="ov-apps-count">--</span><br/><span style="color: var(--text-secondary); font-size: 0.85em;">应用总数</span></div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2 style="text-align: center;">年度 Top 10</h2>
+            <div id="annual-toplist" style="text-align: left; min-height: 60px;">
+                <p style="color: var(--text-secondary); text-align: center;">加载中...</p>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2 style="text-align: center;">分类占比</h2>
+            <div style="max-width: 300px; margin: 0 auto;">
+                <canvas id="annual-category-chart"></canvas>
+            </div>
+        </div>
+
+        <a href="/" style="display: block; text-align: center; margin-top: 16px; font-size: 0.9em;">← 返回主页</a>
+    </div>
+
+    <script>
+        let categoryChart = null;
+
+        async function load() {
+            const resp = await fetch('/api/stats/usage?period=year');
+            const data = await resp.json();
+            const apps = data.apps || [];
+
+            if (apps.length === 0) {
+                document.getElementById('annual-subtitle').textContent = '暂无年度数据';
+                document.getElementById('annual-toplist').innerHTML = '<p style="color: var(--text-muted); text-align: center;">等待数据积累...</p>';
+                return;
+            }
+
+            const total = apps.reduce((s, a) => s + a.seconds, 0);
+            const totalH = Math.floor(total / 3600);
+            const activeDays = Math.max(1, Math.ceil(total / 3600 / 8));
+            const topApp = apps[0].app_name;
+            const appsCount = apps.length;
+
+            document.getElementById('annual-subtitle').textContent =
+                '这一年，你在 ' + appsCount + ' 个应用中度过了 ' + totalH + ' 小时';
+            document.getElementById('ov-total-hours').textContent = totalH.toLocaleString();
+            document.getElementById('ov-active-days').textContent = activeDays;
+            document.getElementById('ov-top-app').textContent = topApp.length > 8 ? topApp.slice(0, 7) + '...' : topApp;
+            document.getElementById('ov-apps-count').textContent = appsCount;
+
+            const listEl = document.getElementById('annual-toplist');
+            const top10 = apps.slice(0, 10);
+            const colors = ['#5470c6', '#91cc75', '#fac858', '#ee6666', '#73c0de', '#9a60b4', '#fc8452', '#3ba272', '#ea7ccc', '#546fc6'];
+            listEl.innerHTML = top10.map((a, i) => {
+                const h = Math.floor(a.seconds / 3600);
+                const m = Math.floor((a.seconds % 3600) / 60);
+                const pct = total > 0 ? (a.seconds / total * 100).toFixed(1) : 0;
+                const barW = total > 0 ? (a.seconds / total * 100).toFixed(0) : 0;
+                return '<div style="display: flex; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--border);">' +
+                    '<span style="width: 24px; text-align: center; font-weight: bold; color: ' + colors[i] + ';">' + (i + 1) + '</span>' +
+                    '<span style="flex: 1; margin-left: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">' + escapeHtml(a.app_name) + '</span>' +
+                    '<span style="margin-left: 8px; color: var(--text-secondary); white-space: nowrap; font-size: 0.9em;">' + (h > 0 ? h + 'h ' : '') + m + 'm</span>' +
+                    '<span style="margin-left: 8px; color: var(--text-secondary); font-size: 0.85em;">' + pct + '%</span>' +
+                '</div>';
+            }).join('');
+
+            drawCategoryChart(apps, total);
+        }
+
+        function drawCategoryChart(apps, total) {
+            const ctx = document.getElementById('annual-category-chart');
+            const catMap = {};
+            const colorList = ['#5470c6', '#91cc75', '#fac858', '#ee6666', '#73c0de', '#3ba272', '#fc8452', '#9a60b4'];
+            let ci = 0;
+            apps.forEach(a => {
+                const cat = a.category || '未分类';
+                if (!catMap[cat]) { catMap[cat] = { sec: 0, color: colorList[ci % colorList.length] }; ci++; }
+                catMap[cat].sec += a.seconds;
+            });
+            const labels = Object.keys(catMap);
+            const values = labels.map(l => catMap[l].sec);
+            const bgColors = labels.map(l => catMap[l].color);
+
+            if (categoryChart) categoryChart.destroy();
+            categoryChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: values,
+                        backgroundColor: bgColors,
+                        borderWidth: 2,
+                        borderColor: getComputedStyle(document.body).getPropertyValue('--bg-surface').trim() || '#fff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                color: getComputedStyle(document.body).getPropertyValue('--text-secondary').trim() || '#666',
+                                padding: 14,
+                                font: { size: 12 }
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(ctx) {
+                                    const h = Math.floor(ctx.raw / 3600);
+                                    const m = Math.floor((ctx.raw % 3600) / 60);
+                                    const pct = total > 0 ? (ctx.raw / total * 100).toFixed(1) : 0;
+                                    return ' ' + ctx.label + ': ' + h + 'h ' + m + 'm (' + pct + '%)';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        load();
+    </script>
+</body>
+</html>

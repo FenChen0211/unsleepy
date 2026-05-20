@@ -399,8 +399,22 @@ def index():
         _dirname='cards'
     )
 
+    # 加载热力图卡片
+    heatmap_card = render_template(
+        'heatmap.html',
+        _dirname='cards'
+    )
+
+    # 加载专注模式卡片
+    focus_card = render_template(
+        'focus_mode.html',
+        _dirname='cards'
+    )
+
     # 读取展示开关
     toggles = d.get_display_toggles()
+    l.info(f'[index] display toggles: {json.dumps(toggles)}')
+    l.info(f'[index] cards: main={bool(main_card)}, stats={bool(stats_card)}, heatmap={bool(heatmap_card)}, focus={bool(focus_card)}, more_info={bool(more_info_card)}')
 
     # 加载插件卡片
     cards = {}
@@ -408,6 +422,13 @@ def index():
         cards['main'] = main_card
     if (toggles.get('show_today_usage', True) or toggles.get('show_category_chart', True)) and stats_card:
         cards['usage-stats'] = stats_card
+    if toggles.get('show_heatmap', False) and heatmap_card:
+        cards['heatmap'] = heatmap_card
+        l.info(f'[index] heatmap card INCLUDED')
+    else:
+        l.info(f'[index] heatmap card SKIPPED (toggle={toggles.get("show_heatmap")}, card_ok={bool(heatmap_card)})')
+    if toggles.get('show_focus_mode', True) and focus_card:
+        cards['focus-mode'] = focus_card
     if more_info_card:
         cards['more-info'] = more_info_card
     for name, values in p.index_cards.items():
@@ -884,6 +905,56 @@ def admin_panel():
     ) or flask.abort(404)
 
 
+@app.route('/panel/categories/list')
+@u.require_secret()
+def panel_categories_list():
+    from data import _AppCategory
+    cats = _AppCategory.query.all()
+    return {'success': True, 'categories': [{'id': c.id, 'pattern': c.pattern, 'category': c.category, 'color': c.color} for c in cats]}
+
+
+@app.route('/panel/category/add', methods=['POST'])
+@u.require_secret()
+def panel_category_add():
+    from data import _AppCategory, db
+    data = flask.request.get_json(silent=True) or {}
+    pattern = data.get('pattern', '').strip()
+    label = data.get('category', '').strip()
+    color = data.get('color', '#5470c6')
+    if not pattern or not label:
+        return {'success': False, 'message': '关键词和分类标签不能为空'}
+    existing = _AppCategory.query.filter_by(pattern=pattern).first()
+    if existing:
+        return {'success': False, 'message': '该关键词已存在'}
+    cat = _AppCategory(pattern=pattern, category=label, color=color)
+    db.session.add(cat)
+    db.session.commit()
+    return {'success': True}
+
+
+@app.route('/panel/category/delete', methods=['POST'])
+@u.require_secret()
+def panel_category_delete():
+    from data import _AppCategory, db
+    cat_id = flask.request.args.get('id', type=int)
+    if not cat_id:
+        return {'success': False, 'message': '缺少 id'}
+    cat = _AppCategory.query.get(cat_id)
+    if cat:
+        db.session.delete(cat)
+        db.session.commit()
+    return {'success': True}
+
+
+@app.route('/panel/logs/clear', methods=['POST'])
+@u.require_secret()
+def panel_logs_clear():
+    from data import _UsageLog, db
+    _UsageLog.query.delete()
+    db.session.commit()
+    return {'success': True}
+
+
 @app.route('/panel/login')
 def login():
     '''
@@ -964,9 +1035,10 @@ def verify_secret():
 @cross_origin(c.main.cors_origins)
 def api_usage_stats():
     period = flask.request.args.get('period', 'today')
-    if period not in ('today', 'week', 'month'):
+    device = flask.request.args.get('device') or None
+    if period not in ('today', 'week', 'month', 'year'):
         period = 'today'
-    data = d.get_aggregated_usage(period)
+    data = d.get_aggregated_usage(period, device_name=device)
     return {'success': True, 'period': period, 'apps': data}
 
 
@@ -974,9 +1046,10 @@ def api_usage_stats():
 @cross_origin(c.main.cors_origins)
 def api_category_stats():
     period = flask.request.args.get('period', 'today')
-    if period not in ('today', 'week', 'month'):
+    device = flask.request.args.get('device') or None
+    if period not in ('today', 'week', 'month', 'year'):
         period = 'today'
-    apps = d.get_aggregated_usage(period)
+    apps = d.get_aggregated_usage(period, device_name=device)
     cat_map: dict[str, int] = {}
     for a in apps:
         cat = a.get('category', '未分类')
@@ -988,10 +1061,115 @@ def api_category_stats():
     return {'success': True, 'period': period, 'categories': categories, 'total_seconds': total}
 
 
-@app.route('/api/settings/toggles')
+@app.route('/api/stats/heatmap')
+@cross_origin(c.main.cors_origins)
+def api_heatmap():
+    days = flask.request.args.get('days', 90, type=int)
+    device = flask.request.args.get('device') or None
+    days = min(max(days, 7), 365)
+    data = d.get_heatmap_data(days=days, device_name=device)
+    return {'success': True, 'days': days, 'data': data}
+
+
+@app.route('/api/stats/devices')
+@cross_origin(c.main.cors_origins)
+def api_devices():
+    return {'success': True, 'devices': d.get_device_names()}
+
+
+@app.route('/api/focus/start', methods=['POST'])
+@cross_origin(c.main.cors_origins)
+def api_focus_start():
+    data = flask.request.get_json(silent=True) or {}
+    user_cfg = d.get_user_config()
+    default_minutes = user_cfg.get('focus_default_minutes', 25)
+    minutes = min(max(data.get('minutes', default_minutes), 1), 120)
+    device = data.get('device', '')
+    result = d.start_focus_session(target_minutes=minutes, device_name=device)
+    return {'success': True, 'session': result}
+
+
+@app.route('/api/focus/stop', methods=['POST'])
+@cross_origin(c.main.cors_origins)
+def api_focus_stop():
+    result = d.end_focus_session()
+    return {'success': True, 'session': result}
+
+
+@app.route('/api/focus/status')
+@cross_origin(c.main.cors_origins)
+def api_focus_status():
+    session = d.get_active_focus_session()
+    return {'success': True, 'session': session}
+
+
+@app.route('/api/settings/toggles', methods=['GET', 'POST'])
 @cross_origin(c.main.cors_origins)
 def api_toggles():
+    if flask.request.method == 'POST':
+        data = flask.request.get_json(silent=True) or {}
+        try:
+            from data import _DisplayToggle, db
+            with flask.current_app.app_context():
+                t = _DisplayToggle.query.first()
+                if t:
+                    for key in ['show_current_status', 'show_today_usage', 'show_category_chart', 'show_heatmap', 'show_focus_mode', 'show_llm_insight']:
+                        if key in data:
+                            setattr(t, key, bool(data[key]))
+                    db.session.commit()
+            return {'success': True, 'toggles': d.get_display_toggles()}
+        except Exception as e:
+            l.warning(f'[toggles] update failed: {e}')
+            return {'success': False, 'message': str(e)}
     return {'success': True, 'toggles': d.get_display_toggles()}
+
+
+@app.route('/api/settings/user_config', methods=['GET', 'POST'])
+@cross_origin(c.main.cors_origins)
+def api_user_config():
+    if flask.request.method == 'POST':
+        from data import _UserConfig, db
+        data = flask.request.get_json(silent=True) or {}
+        try:
+            uc = _UserConfig.query.first()
+            if uc:
+                if 'focus_default_minutes' in data:
+                    uc.focus_default_minutes = max(1, min(int(data['focus_default_minutes']), 120))
+                if 'heatmap_default_days' in data:
+                    uc.heatmap_default_days = max(7, min(int(data['heatmap_default_days']), 365))
+                if 'browser_normalize' in data:
+                    uc.browser_normalize = bool(data['browser_normalize'])
+                if 'llm_max_analysis_days' in data:
+                    uc.llm_max_analysis_days = max(1, min(int(data['llm_max_analysis_days']), 90))
+                db.session.commit()
+            return {'success': True, 'config': d.get_user_config()}
+        except Exception as e:
+            l.warning(f'[user_config] update failed: {e}')
+            return {'success': False, 'message': str(e)}
+    return {'success': True, 'config': d.get_user_config()}
+
+
+@app.route('/api/debug/cards')
+def api_debug_cards():
+    toggles = d.get_display_toggles()
+    from pathlib import Path
+    import os
+    card_files = {}
+    for name in ['heatmap.html', 'focus_mode.html', 'usage_stats.html', 'more_info.index.html', 'main.index.html']:
+        p = Path(__file__).parent / 'theme' / 'default' / 'cards' / name
+        card_files[name] = p.exists()
+    return {
+        'success': True,
+        'toggles': toggles,
+        'card_files_exist': card_files,
+        'cards_would_render': {
+            'main': toggles.get('show_current_status', True),
+            'usage-stats': toggles.get('show_today_usage', True) or toggles.get('show_category_chart', True),
+            'heatmap': toggles.get('show_heatmap', False),
+            'focus-mode': toggles.get('show_focus_mode', True),
+            'more-info': True
+        }
+    }
 
 
 @app.route('/api/export/usage')
@@ -1043,6 +1221,16 @@ def stats_page():
     return render_template(
         'stats.html',
         page_title=f'{c.page.name} - 使用统计',
+        page_background=c.page.background,
+        page_favicon=c.page.favicon
+    ) or flask.abort(404)
+
+
+@app.route('/stats/annual')
+def annual_page():
+    return render_template(
+        'annual.html',
+        page_title=f'{c.page.name} - 年度报告',
         page_background=c.page.background,
         page_favicon=c.page.favicon
     ) or flask.abort(404)

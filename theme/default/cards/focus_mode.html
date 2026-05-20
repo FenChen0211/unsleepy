@@ -1,0 +1,111 @@
+<h2>专注模式</h2>
+<div id="focus-status" style="min-height: 36px; display: flex; align-items: center; justify-content: center;">
+    <p style="color: var(--text-secondary); font-size: 0.9em;">检查中...</p>
+</div>
+<div id="focus-timer" style="display: none; font-size: 2.4em; font-weight: 700; font-variant-numeric: tabular-nums; margin: 8px 0; color: var(--accent);">
+    25:00
+</div>
+<div id="focus-controls" style="display: none; margin-top: 8px;">
+    <button class="btn btn-primary" id="focus-start-btn">开始专注 (25分钟)</button>
+    <div style="display: none; margin-top: 8px;" id="focus-active-ctrl">
+        <button class="btn btn-primary" id="focus-stop-btn" style="background: var(--color-error); border-color: var(--color-error);">结束专注</button>
+    </div>
+</div>
+
+<script>
+(function() {
+    let timerInterval = null;
+    let activeSession = null;
+
+    function escapeHtml(s) {
+        var d = document.createElement('div');
+        d.textContent = s || '';
+        return d.innerHTML;
+    }
+
+    function fmtTime(s) {
+        var m = Math.floor(s / 60);
+        var sec = s % 60;
+        return m + ':' + (sec < 10 ? '0' : '') + sec;
+    }
+
+    function updateTimer(remaining) {
+        var el = document.getElementById('focus-timer');
+        if (remaining <= 0) {
+            el.textContent = '00:00';
+            el.style.color = 'var(--color-error)';
+            stopTimer();
+            document.getElementById('focus-status').innerHTML = '<p style="color: var(--accent);">专注完成！</p>';
+            document.getElementById('focus-active-ctrl').style.display = 'none';
+            return;
+        }
+        el.textContent = fmtTime(remaining);
+    }
+
+    function startTimer(session) {
+        activeSession = session;
+        stopTimer();
+        updateTimer(session.remaining);
+        timerInterval = setInterval(function() {
+            if (activeSession) activeSession.remaining -= 1;
+            updateTimer(activeSession ? activeSession.remaining : 0);
+        }, 1000);
+    }
+
+    function stopTimer() {
+        if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+    }
+
+    function showIdle() {
+        document.getElementById('focus-timer').style.display = 'none';
+        document.getElementById('focus-active-ctrl').style.display = 'none';
+        document.getElementById('focus-controls').style.display = 'block';
+        document.getElementById('focus-status').innerHTML = '<p style="color: var(--text-secondary); font-size: 0.9em;">设置番茄钟，保持专注</p>';
+    }
+
+    function showActive(session) {
+        document.getElementById('focus-timer').style.display = '';
+        document.getElementById('focus-timer').style.color = 'var(--accent)';
+        document.getElementById('focus-controls').style.display = 'block';
+        document.getElementById('focus-active-ctrl').style.display = '';
+        document.getElementById('focus-status').innerHTML =
+            '<p style="color: var(--text-secondary); font-size: 0.85em;">目标: ' + escapeHtml(session.target_minutes) + ' 分钟</p>';
+        startTimer(session);
+    }
+
+    function checkStatus() {
+        fetch('/api/focus/status').then(function(r){ return r.json(); }).then(function(d) {
+            if (d.session && d.session.active) {
+                showActive(d.session);
+            } else {
+                showIdle();
+            }
+        }).catch(function(){ showIdle(); });
+    }
+
+    document.getElementById('focus-start-btn').addEventListener('click', function() {
+        fetch('/api/focus/start', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({minutes: 25})
+        }).then(function(r){ return r.json(); }).then(function(d) {
+            if (d.success && d.session) showActive({remaining: d.session.remaining, target_minutes: d.session.target_minutes});
+        });
+    });
+
+    // 读取用户配置的默认时长
+    fetch('/api/settings/user_config').then(function(r){ return r.json(); }).then(function(d){
+        var cfg = d.config || {};
+        var minutes = cfg.focus_default_minutes || 25;
+        document.getElementById('focus-start-btn').textContent = '开始专注 (' + minutes + '分钟)';
+    }).catch(function(){});
+
+    document.getElementById('focus-stop-btn').addEventListener('click', function() {
+        fetch('/api/focus/stop', {method: 'POST'}).then(function(r){ return r.json(); }).then(function() {
+            showIdle();
+        });
+    });
+
+    checkStatus();
+})();
+</script>

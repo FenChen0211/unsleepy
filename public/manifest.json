@@ -1,0 +1,16 @@
+{
+    "name": "Sleepy",
+    "short_name": "Sleepy",
+    "description": "实时状态监控面板",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#0d1117",
+    "theme_color": "#5470c6",
+    "icons": [
+        {
+            "src": "/favicon.ico",
+            "sizes": "48x48"
+        }
+    ],
+    "lang": "zh-CN"
+}

@@ -1,4 +1,9 @@
 <h2>使用分析</h2>
+<div style="display: flex; gap: 6px; justify-content: center; margin-bottom: 6px;">
+    <select id="stats-device-sel" style="display: none; padding: 4px 8px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--bg-elevated); color: var(--text-primary); font-size: 0.85em; width: 100%; max-width: 200px;">
+        <option value="">全部设备</option>
+    </select>
+</div>
 <div style="display: flex; gap: 6px; justify-content: center; margin-bottom: 14px;">
     <button class="btn btn-primary" id="stats-btn-today">今日</button>
     <button class="btn btn-secondary" id="stats-btn-week">本周</button>
@@ -95,14 +100,20 @@
         });
     }
 
+    let currentPer = 'today';
+    let currentDev = '';
+
     async function load(period) {
+        currentPer = period;
         setActive(period);
         const listEl = document.getElementById('stats-usage-list');
         listEl.innerHTML = '<p style="color: var(--text-secondary); text-align: center; font-size: 0.85em;">加载中...</p>';
 
         let apps = [];
         try {
-            const resp = await fetch('/api/stats/usage?period=' + period);
+            let url = '/api/stats/usage?period=' + period;
+            if (currentDev) url += '&device=' + encodeURIComponent(currentDev);
+            const resp = await fetch(url);
             const data = await resp.json();
             apps = data.apps || [];
         } catch(e) {
@@ -145,6 +156,20 @@
         btns.today.addEventListener('click', function(){ load('today'); });
         btns.week.addEventListener('click', function(){ load('week'); });
         btns.month.addEventListener('click', function(){ load('month'); });
+
+        const devSel = document.getElementById('stats-device-sel');
+        devSel.addEventListener('change', function() { currentDev = this.value; load(currentPer); });
+
+        fetch('/api/stats/devices').then(function(r){ return r.json(); }).then(function(d) {
+            if (!d.devices || d.devices.length <= 1) return;
+            devSel.style.display = '';
+            d.devices.forEach(function(dev) {
+                var opt = document.createElement('option');
+                opt.value = dev; opt.textContent = dev;
+                devSel.appendChild(opt);
+            });
+        }).catch(function(){});
+
         load('today');
     });
 })();

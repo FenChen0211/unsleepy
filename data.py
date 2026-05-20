@@ -134,6 +134,33 @@ class _DisplayToggle(db.Model):
     show_today_usage: Mapped[bool] = mapped_column(Boolean, default=True)
     show_category_chart: Mapped[bool] = mapped_column(Boolean, default=True)
     show_heatmap: Mapped[bool] = mapped_column(Boolean, default=False)
+    show_focus_mode: Mapped[bool] = mapped_column(Boolean, default=True)
+    show_llm_insight: Mapped[bool] = mapped_column(Boolean, default=False)
+
+
+class _UserConfig(db.Model):
+    '''
+    用户自定义配置
+    '''
+    __tablename__ = 'user_config'
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, default=0)
+    focus_default_minutes: Mapped[int] = mapped_column(Integer, default=25)
+    heatmap_default_days: Mapped[int] = mapped_column(Integer, default=90)
+    browser_normalize: Mapped[bool] = mapped_column(Boolean, default=True)
+    llm_max_analysis_days: Mapped[int] = mapped_column(Integer, default=14)
+
+
+class _FocusSession(db.Model):
+    '''
+    专注模式会话
+    '''
+    __tablename__ = 'focus_session'
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    device_name: Mapped[str] = mapped_column(String(LIMIT), default='')
+    start_time: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.utcnow(), nullable=False)
+    end_time: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+    target_minutes: Mapped[int] = mapped_column(Integer, nullable=False, default=25)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.utcnow(), nullable=False)
 
 
 class _UsageLog(db.Model):
@@ -187,6 +214,12 @@ class Data:
             if not display_toggle:
                 display_toggle = _DisplayToggle()
                 db.session.add(display_toggle)
+                db.session.commit()
+
+            user_config = _UserConfig.query.first()
+            if not user_config:
+                user_config = _UserConfig()
+                db.session.add(user_config)
                 db.session.commit()
 
             # 启动 APScheduler
@@ -450,6 +483,13 @@ class Data:
                     log_app_name = status
                     if isinstance(device.fields, dict) and device.fields.get('app_name'):
                         log_app_name = device.fields['app_name']
+                    # 浏览器名称规范化
+                    try:
+                        uc = _UserConfig.query.first()
+                        if uc and uc.browser_normalize:
+                            log_app_name = self.normalize_browser_name(log_app_name)
+                    except Exception:
+                        pass
                     l.debug(f'[usage_log] app changed: {old_status} -> {log_app_name} on {device.show_name}')
 
                     now_ts = datetime.utcnow()
@@ -476,6 +516,30 @@ class Data:
         except SQLAlchemyError as e:
             self._throw(e)
 
+    @staticmethod
+    def normalize_browser_name(app_name: str) -> str:
+        '''
+        浏览器窗口标题规范化：将 "GitHub - Microsoft Edge" 统一为 "Microsoft Edge"
+        '''
+        name_lower = app_name.lower()
+        browsers = [
+            ('microsoft edge', 'Microsoft Edge'),
+            ('google chrome', 'Google Chrome'),
+            ('mozilla firefox', 'Mozilla Firefox'),
+            ('safari', 'Safari'),
+            ('opera', 'Opera'),
+            ('brave', 'Brave'),
+            ('vivaldi', 'Vivaldi'),
+            ('arc', 'Arc'),
+            ('edge', 'Microsoft Edge'),
+            ('chrome', 'Google Chrome'),
+            ('firefox', 'Mozilla Firefox'),
+        ]
+        for pattern, canonical in browsers:
+            if pattern in name_lower:
+                return canonical
+        return app_name
+
     def _match_category(self, app_name: str, categories: list[_AppCategory]) -> str:
         app_lower = app_name.lower()
         for cat in categories:
@@ -499,12 +563,34 @@ class Data:
             with self._app.app_context():
                 t = _DisplayToggle.query.first()
                 if not t:
-                    return {'show_current_status': True, 'show_today_usage': True, 'show_category_chart': True, 'show_heatmap': False}
+                    return {'show_current_status': True, 'show_today_usage': True, 'show_category_chart': True, 'show_heatmap': False, 'show_focus_mode': True, 'show_llm_insight': False}
                 return {
                     'show_current_status': t.show_current_status,
                     'show_today_usage': t.show_today_usage,
                     'show_category_chart': t.show_category_chart,
-                    'show_heatmap': t.show_heatmap
+                    'show_heatmap': t.show_heatmap,
+                    'show_focus_mode': t.show_focus_mode,
+                    'show_llm_insight': t.show_llm_insight
+                }
+        except SQLAlchemyError as e:
+            self._throw(e)
+
+    def get_user_config(self) -> dict:
+        try:
+            with self._app.app_context():
+                c = _UserConfig.query.first()
+                if not c:
+                    return {
+                        'focus_default_minutes': 25,
+                        'heatmap_default_days': 90,
+                        'browser_normalize': True,
+                        'llm_max_analysis_days': 14
+                    }
+                return {
+                    'focus_default_minutes': c.focus_default_minutes,
+                    'heatmap_default_days': c.heatmap_default_days,
+                    'browser_normalize': c.browser_normalize,
+                    'llm_max_analysis_days': c.llm_max_analysis_days
                 }
         except SQLAlchemyError as e:
             self._throw(e)
@@ -528,6 +614,9 @@ class Data:
             end = now
         elif period == 'month':
             start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            end = now
+        elif period == 'year':
+            start = now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
             end = now
         else:
             start = now.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -589,12 +678,14 @@ class Data:
             l.error(f'[aggregation] {period} failed: {e}')
 
     def compute_all_aggregations(self):
-        for period in ('today', 'week', 'month'):
+        for period in ('today', 'week', 'month', 'year'):
             self.compute_aggregation(period)
 
-    def get_aggregated_usage(self, period: str) -> list[dict]:
+    def get_aggregated_usage(self, period: str, device_name: str = None) -> list[dict]:
         try:
             with self._app.app_context():
+                if device_name:
+                    return self._compute_device_usage(period, device_name)
                 rows: list[_AggregatedUsage] = _AggregatedUsage.query.filter_by(
                     period=period
                 ).order_by(_AggregatedUsage.total_seconds.desc()).all()
@@ -604,6 +695,130 @@ class Data:
                     'seconds': r.total_seconds,
                     'computed_at': r.computed_at.isoformat() if r.computed_at else None
                 } for r in rows]
+        except SQLAlchemyError as e:
+            self._throw(e)
+
+    def _compute_device_usage(self, period: str, device_name: str) -> list[dict]:
+        start, end = self._get_period_range(period)
+        logs = _UsageLog.query.filter(
+            _UsageLog.timestamp >= start,
+            _UsageLog.timestamp <= end,
+            _UsageLog.device_name == device_name
+        ).order_by(_UsageLog.timestamp).all()
+        from collections import defaultdict
+        dd: dict[str, int] = defaultdict(int)
+        for i in range(len(logs)):
+            if i < len(logs) - 1:
+                dur = int((logs[i + 1].timestamp - logs[i].timestamp).total_seconds())
+            else:
+                dur = logs[i].duration or int((end - logs[i].timestamp).total_seconds())
+            if 0 < dur < 7200:
+                dd[logs[i].app_name] += dur
+        cats = {c.pattern.lower(): c for c in _AppCategory.query.all()}
+        result = []
+        for app_name, secs in sorted(dd.items(), key=lambda x: -x[1]):
+            cat = '未分类'
+            nl = app_name.lower()
+            for p, c in cats.items():
+                if p in nl:
+                    cat = c.category
+                    break
+            result.append({'app_name': app_name, 'category': cat, 'seconds': secs, 'computed_at': None})
+        return result
+
+    def get_device_names(self) -> list[str]:
+        try:
+            with self._app.app_context():
+                rows = _UsageLog.query.with_entities(_UsageLog.device_name).distinct().all()
+                return sorted(r[0] for r in rows if r[0])
+        except SQLAlchemyError as e:
+            self._throw(e)
+
+    def get_heatmap_data(self, days: int = 90, device_name: str = None) -> list:
+        try:
+            with self._app.app_context():
+                tz = pytz.timezone(self._c.main.timezone)
+                end = datetime.now(tz).replace(hour=23, minute=59, second=59, microsecond=0)
+                start = end - timedelta(days=days - 1)
+                start_utc = start.astimezone(dt_timezone.utc).replace(tzinfo=None)
+                end_utc = end.astimezone(dt_timezone.utc).replace(tzinfo=None)
+                query = _UsageLog.query.filter(
+                    _UsageLog.timestamp >= start_utc,
+                    _UsageLog.timestamp <= end_utc
+                )
+                if device_name:
+                    query = query.filter_by(device_name=device_name)
+                logs = query.order_by(_UsageLog.timestamp).all()
+                daily: dict[str, int] = {}
+                for log in logs:
+                    if log.duration and log.duration > 0:
+                        day = log.timestamp.strftime('%Y-%m-%d')
+                        daily[day] = daily.get(day, 0) + log.duration
+                result = []
+                current = start
+                while current <= end:
+                    ds = current.strftime('%Y-%m-%d')
+                    result.append({'date': ds, 'seconds': daily.get(ds, 0)})
+                    current += timedelta(days=1)
+                return result
+        except SQLAlchemyError as e:
+            self._throw(e)
+
+    def get_active_focus_session(self) -> dict | None:
+        try:
+            with self._app.app_context():
+                session = _FocusSession.query.filter_by(end_time=None).order_by(
+                    _FocusSession.id.desc()
+                ).first()
+                if not session:
+                    return None
+                now_ts = datetime.utcnow()
+                elapsed = int((now_ts - session.start_time).total_seconds())
+                remaining = max(0, session.target_minutes * 60 - elapsed)
+                return {
+                    'id': session.id,
+                    'device_name': session.device_name,
+                    'start_time': session.start_time.isoformat(),
+                    'target_minutes': session.target_minutes,
+                    'elapsed': elapsed,
+                    'remaining': remaining,
+                    'active': remaining > 0
+                }
+        except SQLAlchemyError as e:
+            self._throw(e)
+
+    def start_focus_session(self, target_minutes: int = 25, device_name: str = '') -> dict:
+        try:
+            with self._app.app_context():
+                active = _FocusSession.query.filter_by(end_time=None).first()
+                if active:
+                    active.end_time = datetime.utcnow()
+                session = _FocusSession(
+                    device_name=device_name,
+                    start_time=datetime.utcnow(),
+                    target_minutes=target_minutes
+                )
+                db.session.add(session)
+                db.session.commit()
+                return {
+                    'id': session.id,
+                    'start_time': session.start_time.isoformat(),
+                    'target_minutes': target_minutes,
+                    'remaining': target_minutes * 60
+                }
+        except SQLAlchemyError as e:
+            self._throw(e)
+
+    def end_focus_session(self) -> dict | None:
+        try:
+            with self._app.app_context():
+                session = _FocusSession.query.filter_by(end_time=None).first()
+                if session:
+                    session.end_time = datetime.utcnow()
+                    elapsed = int((session.end_time - session.start_time).total_seconds())
+                    db.session.commit()
+                    return {'id': session.id, 'elapsed': elapsed, 'target_minutes': session.target_minutes}
+                return None
         except SQLAlchemyError as e:
             self._throw(e)
 
@@ -847,18 +1062,15 @@ class Data:
                     return BytesIO(f.read())
             else:
                 cache_key = f'f-{dirname}/{filename}'
-                # check cache & expire
                 now = time()
                 cached = self._cache.get(cache_key)
                 if cached and now - cached[0] < self._c.main.cache_age:
-                    # has cache, and not expired
-                    return cached[1]
+                    return BytesIO(cached[1])
                 else:
-                    # no cache, or expired
                     with open(filepath, 'rb') as f:
-                        ret = BytesIO(f.read())
+                        ret = f.read()
                     self._cache[cache_key] = (now, ret)
-                    return ret
+                    return BytesIO(ret)
         except FileNotFoundError or IsADirectoryError:
             # not found / isn't file -> none
             return None
@@ -888,8 +1100,8 @@ class Data:
         if self._c.main.debug:
             return
         now = time()
-        for name in self._cache.keys():
-            if now - self._cache.get(name, (now, ''))[0] > self._c.main.cache_age:
-                f = self._cache.pop(name, (0, None))[1]
-                if f:
-                    f.close()
+        expired = [k for k, v in self._cache.items() if now - v[0] > self._c.main.cache_age]
+        for k in expired:
+            v = self._cache.pop(k, (0, None))[1]
+            if v is not None and hasattr(v, 'close'):
+                v.close()

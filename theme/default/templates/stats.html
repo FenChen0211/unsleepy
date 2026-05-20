@@ -17,6 +17,11 @@
     <div class="container" style="max-width: 800px;">
         <div class="card">
             <h2>使用时长</h2>
+            <div style="display: flex; gap: 6px; justify-content: center; margin-bottom: 6px;">
+                <select id="device-select" style="display: none; padding: 4px 8px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--bg-elevated); color: var(--text-primary); font-size: 0.85em; max-width: 200px;">
+                    <option value="">全部设备</option>
+                </select>
+            </div>
             <div style="display: flex; gap: 8px; justify-content: center; margin-bottom: 16px;">
                 <button class="btn btn-primary period-btn" data-period="today">今日</button>
                 <button class="btn btn-secondary period-btn" data-period="week">本周</button>
@@ -42,6 +47,9 @@
         let chartInstance = null;
         const periodBtns = document.querySelectorAll('.period-btn');
 
+        let currentPeriod = 'today';
+        let currentDevice = '';
+
         function setActiveBtn(period) {
             periodBtns.forEach(b => {
                 b.className = b.dataset.period === period ? 'btn btn-primary period-btn' : 'btn btn-secondary period-btn';
@@ -49,11 +57,14 @@
         }
 
         async function loadUsage(period) {
+            currentPeriod = period;
             setActiveBtn(period);
             const listEl = document.getElementById('usage-list');
             listEl.innerHTML = '<p style="color: var(--text-secondary); text-align: center;">加载中...</p>';
 
-            const resp = await fetch(`/api/stats/usage?period=${period}`);
+            let url = `/api/stats/usage?period=${period}`;
+            if (currentDevice) url += '&device=' + encodeURIComponent(currentDevice);
+            const resp = await fetch(url);
             const data = await resp.json();
             const apps = data.apps || [];
 
@@ -156,6 +167,19 @@
         periodBtns.forEach(btn => {
             btn.addEventListener('click', () => loadUsage(btn.dataset.period));
         });
+
+        const devSel = document.getElementById('device-select');
+        devSel.addEventListener('change', function() { currentDevice = this.value; loadUsage(currentPeriod); });
+
+        fetch('/api/stats/devices').then(function(r){ return r.json(); }).then(function(d) {
+            if (!d.devices || d.devices.length <= 1) return;
+            devSel.style.display = '';
+            d.devices.forEach(function(dev) {
+                var opt = document.createElement('option');
+                opt.value = dev; opt.textContent = dev;
+                devSel.appendChild(opt);
+            });
+        }).catch(function(){});
 
         loadUsage('today');
     </script>
