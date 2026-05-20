@@ -24,6 +24,7 @@ try:
     import json
     from traceback import format_exc
     from mimetypes import guess_type
+    import secrets
 
     # 3rd-party
     import flask
@@ -64,6 +65,9 @@ try:
     )
     app.json.ensure_ascii = False  # type: ignore - disable json ensure_ascii
 
+    # set secret key for session (required by flask-admin flash messages)
+    # will be set after config init using main.secret or random value
+
     # init logger
     l = logging.getLogger(__name__)
     logging.basicConfig(level=logging.DEBUG)
@@ -76,6 +80,9 @@ try:
 
     # init config
     c = config_init().config
+
+    # set flask secret key for session support (required by flask-admin)
+    app.secret_key = c.main.secret or secrets.token_hex(32)
 
     # continue init logger
     root_logger.level = logging.DEBUG if c.main.debug else logging.INFO  # set log level
@@ -386,11 +393,23 @@ def index():
         available_themes=u.themes_available()
     )
 
+    # 加载使用统计卡片
+    stats_card = render_template(
+        'usage_stats.html',
+        _dirname='cards'
+    )
+
+    # 读取展示开关
+    toggles = d.get_display_toggles()
+
     # 加载插件卡片
-    cards = {
-        'main': main_card,
-        'more-info': more_info_card
-    }
+    cards = {}
+    if toggles.get('show_current_status', True) and main_card:
+        cards['main'] = main_card
+    if (toggles.get('show_today_usage', True) or toggles.get('show_category_chart', True)) and stats_card:
+        cards['usage-stats'] = stats_card
+    if more_info_card:
+        cards['more-info'] = more_info_card
     for name, values in p.index_cards.items():
         value = ''
         for v in values:
@@ -705,13 +724,16 @@ def device_set():
     elif flask.request.method == 'POST':
         try:
             req: dict = flask.request.get_json()
+            fields = req.get('fields') or {}
+            if req.get('app_name'):
+                fields['app_name'] = req.get('app_name')
 
             evt = p.trigger_event(pl.DeviceSetEvent(
                 device_id=req.get('id'),
                 show_name=req.get('show_name'),
                 using=req.get('using'),
                 status=req.get('status') or req.get('app_name'),  # 兼容旧版名称
-                fields=req.get('fields') or {}
+                fields=fields
             ))
             if evt.interception:
                 return evt.interception
@@ -935,6 +957,96 @@ def verify_secret():
     }
 
 # endregion routes-panel
+
+# ========== Stats ==========
+
+@app.route('/api/stats/usage')
+@cross_origin(c.main.cors_origins)
+def api_usage_stats():
+    period = flask.request.args.get('period', 'today')
+    if period not in ('today', 'week', 'month'):
+        period = 'today'
+    data = d.get_aggregated_usage(period)
+    return {'success': True, 'period': period, 'apps': data}
+
+
+@app.route('/api/stats/category')
+@cross_origin(c.main.cors_origins)
+def api_category_stats():
+    period = flask.request.args.get('period', 'today')
+    if period not in ('today', 'week', 'month'):
+        period = 'today'
+    apps = d.get_aggregated_usage(period)
+    cat_map: dict[str, int] = {}
+    for a in apps:
+        cat = a.get('category', '未分类')
+        cat_map[cat] = cat_map.get(cat, 0) + a['seconds']
+    categories = [{'name': k, 'seconds': v} for k, v in sorted(cat_map.items(), key=lambda x: -x[1])]
+    total = sum(c['seconds'] for c in categories)
+    for c in categories:
+        c['percentage'] = round(c['seconds'] / total * 100, 1) if total > 0 else 0
+    return {'success': True, 'period': period, 'categories': categories, 'total_seconds': total}
+
+
+@app.route('/api/settings/toggles')
+@cross_origin(c.main.cors_origins)
+def api_toggles():
+    return {'success': True, 'toggles': d.get_display_toggles()}
+
+
+@app.route('/api/export/usage')
+@cross_origin(c.main.cors_origins)
+@u.require_secret()
+def api_export_usage():
+    from data import _UsageLog, db
+    page = flask.request.args.get('page', 1, type=int)
+    per_page = min(flask.request.args.get('per_page', 500, type=int), 2000)
+    fmt = flask.request.args.get('format', 'json')
+    pagination = _UsageLog.query.order_by(_UsageLog.timestamp.desc()).paginate(
+        page=page, per_page=per_page, error_out=False
+    )
+    records = []
+    for log in pagination.items:
+        records.append({
+            'id': log.id,
+            'timestamp': log.timestamp.isoformat() if log.timestamp else None,
+            'app_name': log.app_name,
+            'device_name': log.device_name,
+            'duration': log.duration,
+            'created_at': log.created_at.isoformat() if log.created_at else None
+        })
+    result = {
+        'success': True,
+        'page': page,
+        'per_page': per_page,
+        'total': pagination.total,
+        'pages': pagination.pages,
+        'records': records
+    }
+    if fmt == 'csv':
+        import csv, io
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(['id', 'timestamp', 'app_name', 'device_name', 'duration', 'created_at'])
+        for r in records:
+            writer.writerow([r['id'], r['timestamp'], r['app_name'], r['device_name'], r['duration'], r['created_at']])
+        csv_str = output.getvalue()
+        output.close()
+        resp = flask.Response(csv_str, mimetype='text/csv')
+        resp.headers['Content-Disposition'] = 'attachment; filename=usage_log.csv'
+        return resp
+    return result
+
+
+@app.route('/stats')
+def stats_page():
+    return render_template(
+        'stats.html',
+        page_title=f'{c.page.name} - 使用统计',
+        page_background=c.page.background,
+        page_favicon=c.page.favicon
+    ) or flask.abort(404)
+
 
 # if c.util.steam_enabled:
 #     @app.route('/steam-iframe')

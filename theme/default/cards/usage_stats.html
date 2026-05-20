@@ -1,0 +1,151 @@
+<h2>使用分析</h2>
+<div style="display: flex; gap: 6px; justify-content: center; margin-bottom: 14px;">
+    <button class="btn btn-primary" id="stats-btn-today">今日</button>
+    <button class="btn btn-secondary" id="stats-btn-week">本周</button>
+    <button class="btn btn-secondary" id="stats-btn-month">本月</button>
+</div>
+<div id="stats-usage-list" style="text-align: left; min-height: 40px;"></div>
+<div style="max-width: 240px; margin: 10px auto 0;">
+    <canvas id="stats-category-chart"></canvas>
+</div>
+<p id="stats-chart-empty" style="color: var(--text-secondary); display: none; font-size: 0.85em;">暂无数据</p>
+
+<script>
+(function() {
+    let chartInst = null;
+    const btns = {
+        today: document.getElementById('stats-btn-today'),
+        week: document.getElementById('stats-btn-week'),
+        month: document.getElementById('stats-btn-month')
+    };
+
+    function setActive(p) {
+        Object.keys(btns).forEach(k => {
+            btns[k].className = k === p ? 'btn btn-primary' : 'btn btn-secondary';
+        });
+    }
+
+    function escapeTags(s) {
+        const d = document.createElement('div');
+        d.textContent = s || '';
+        return d.innerHTML;
+    }
+
+    function drawChart(apps) {
+        const ctx = document.getElementById('stats-category-chart');
+        const emptyEl = document.getElementById('stats-chart-empty');
+        if (chartInst) { chartInst.destroy(); chartInst = null; }
+
+        if (!apps || apps.length === 0) {
+            emptyEl.style.display = 'block';
+            ctx.style.display = 'none';
+            return;
+        }
+
+        const catMap = {};
+        const colors = ['#5470c6','#91cc75','#fac858','#ee6666','#73c0de','#3ba272','#fc8452','#9a60b4'];
+        let ci = 0;
+        apps.forEach(a => {
+            const cat = a.category || '未分类';
+            if (!catMap[cat]) { catMap[cat] = { sec: 0, color: colors[ci % colors.length] }; ci++; }
+            catMap[cat].sec += a.seconds;
+        });
+
+        emptyEl.style.display = 'none';
+        ctx.style.display = 'block';
+
+        const style = getComputedStyle(document.body);
+        chartInst = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: Object.keys(catMap),
+                datasets: [{
+                    data: Object.values(catMap).map(c => c.sec),
+                    backgroundColor: Object.values(catMap).map(c => c.color),
+                    borderWidth: 1.5,
+                    borderColor: style.getPropertyValue('--bg-glass').trim().replace(/rgba?\(.*\)/,'') || 'transparent'
+                }]
+            },
+            options: {
+                responsive: true,
+                cutout: '58%',
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            color: style.getPropertyValue('--text-secondary').trim() || '#666',
+                            padding: 10,
+                            font: { size: 10 },
+                            boxWidth: 8
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(ctx) {
+                                const t = ctx.dataset.data.reduce((a,b)=>a+b,0);
+                                const p = t>0?(ctx.raw/t*100).toFixed(1):0;
+                                const h = Math.floor(ctx.raw/3600);
+                                const m = Math.floor((ctx.raw%3600)/60);
+                                return ' ' + ctx.label + ': ' + h + 'h ' + m + 'm (' + p + '%)';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    async function load(period) {
+        setActive(period);
+        const listEl = document.getElementById('stats-usage-list');
+        listEl.innerHTML = '<p style="color: var(--text-secondary); text-align: center; font-size: 0.85em;">加载中...</p>';
+
+        let apps = [];
+        try {
+            const resp = await fetch('/api/stats/usage?period=' + period);
+            const data = await resp.json();
+            apps = data.apps || [];
+        } catch(e) {
+            listEl.innerHTML = '<p style="color: var(--text-muted); text-align: center; font-size: 0.85em;">加载失败</p>';
+            drawChart([]);
+            return;
+        }
+
+        if (apps.length === 0) {
+            listEl.innerHTML = '<p style="color: var(--text-muted); text-align: center; font-size: 0.85em;">暂无数据，等待客户端推送后自动统计</p>';
+            drawChart([]);
+            return;
+        }
+
+        const total = apps.reduce((s, a) => s + a.seconds, 0);
+        listEl.innerHTML = apps.slice(0, 8).map(a => {
+            const pct = total > 0 ? (a.seconds / total * 100).toFixed(1) : 0;
+            const h = Math.floor(a.seconds / 3600);
+            const m = Math.floor((a.seconds % 3600) / 60);
+            const ts = h > 0 ? h + 'h ' + m + 'm' : m + 'm';
+            return '<div style="display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid var(--border); font-size: 0.88em;">' +
+                '<span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 62%;">' +
+                '<span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #5470c6; margin-right: 4px; vertical-align: middle;"></span>' +
+                escapeTags(a.app_name) + '</span>' +
+                '<span style="color: var(--text-secondary); white-space: nowrap;">' + ts + ' (' + pct + '%)</span></div>';
+        }).join('');
+
+        drawChart(apps);
+    }
+
+    function ensureChart(cb) {
+        if (window.Chart) { cb(); return; }
+        const s = document.createElement('script');
+        s.src = "{{ url_for('static', filename='chart.min.js') }}";
+        s.onload = cb;
+        document.head.appendChild(s);
+    }
+
+    ensureChart(function() {
+        btns.today.addEventListener('click', function(){ load('today'); });
+        btns.week.addEventListener('click', function(){ load('week'); });
+        btns.month.addEventListener('click', function(){ load('month'); });
+        load('today');
+    });
+})();
+</script>

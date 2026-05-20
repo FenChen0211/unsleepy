@@ -1,9 +1,8 @@
 # coding: utf-8
 
-from datetime import datetime, timezone as dt_timezone
+from datetime import datetime, timezone as dt_timezone, timedelta
 from logging import getLogger
-from threading import Thread
-from time import sleep, time
+from time import time
 from typing import Any
 from io import BytesIO
 
@@ -15,7 +14,10 @@ from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.exc import SQLAlchemyError
 from objtyping import to_primitive
 import pytz
-import schedule
+
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.interval import IntervalTrigger
 
 import utils as u
 from models import ConfigModel, _StatusItemModel
@@ -97,17 +99,54 @@ class _PluginData(db.Model):
     '''插件数据'''
 
 
+class _AppCategory(db.Model):
+    '''
+    应用分类标签
+    '''
+    __tablename__ = 'app_category'
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    pattern: Mapped[str] = mapped_column(String(LIMIT), nullable=False, unique=True)
+    category: Mapped[str] = mapped_column(String(LIMIT), nullable=False)
+    color: Mapped[str] = mapped_column(String(20), default='#5470c6')
+
+
+class _AggregatedUsage(db.Model):
+    '''
+    聚合使用时长（定时预计算）
+    '''
+    __tablename__ = 'aggregated_usage'
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    period: Mapped[str] = mapped_column(String(16), nullable=False)
+    period_start: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    app_name: Mapped[str] = mapped_column(String(LIMIT), nullable=False)
+    total_seconds: Mapped[int] = mapped_column(Integer, default=0)
+    category: Mapped[str] = mapped_column(String(LIMIT), default='未分类')
+    computed_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(dt_timezone.utc))
+
+
+class _DisplayToggle(db.Model):
+    '''
+    前端展示开关
+    '''
+    __tablename__ = 'display_toggle'
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, default=0)
+    show_current_status: Mapped[bool] = mapped_column(Boolean, default=True)
+    show_today_usage: Mapped[bool] = mapped_column(Boolean, default=True)
+    show_category_chart: Mapped[bool] = mapped_column(Boolean, default=True)
+    show_heatmap: Mapped[bool] = mapped_column(Boolean, default=False)
+
+
 class _UsageLog(db.Model):
     '''
     使用记录日志
     '''
     __tablename__ = 'usage_log'
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    timestamp: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(dt_timezone.utc), nullable=False)
+    timestamp: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.utcnow(), nullable=False)
     app_name: Mapped[str] = mapped_column(String(LIMIT), nullable=False)
     device_name: Mapped[str] = mapped_column(String(LIMIT), nullable=False)
     duration: Mapped[int] = mapped_column(Integer, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(dt_timezone.utc), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.utcnow(), nullable=False)
 
 
 # -----
@@ -144,29 +183,49 @@ class Data:
                 db.session.add(metrics_metadata)
                 db.session.commit()
 
-            # 启动 schedule loop
-            self._schedule_loop_th = Thread(target=self._schedule_loop, daemon=True)
-            self._schedule_loop_th.start()
+            display_toggle = _DisplayToggle.query.first()
+            if not display_toggle:
+                display_toggle = _DisplayToggle()
+                db.session.add(display_toggle)
+                db.session.commit()
+
+            # 启动 APScheduler
+            self._setup_scheduler()
 
         l.debug(f'[data] init took {perf()}ms')
 
     def _throw(self, e: SQLAlchemyError):
-        '''
-        简化抛出 sql call failed error
-        '''
         l.error(f'SQL Call Failed: {e}')
         raise u.APIUnsuccessful(500, 'Database Error')
 
-    def _schedule_loop(self):
-        if self._c.metrics.enabled:
-            # 先执行一次
-            self._metrics_refresh()
-            schedule.every().day.at('00:00:00', self._c.main.timezone).do(self._metrics_refresh)  # metrics check
-        schedule.every(self._c.main.cache_age).seconds.do(self._clean_cache)  # cache
+    def _setup_scheduler(self):
+        self._scheduler = BackgroundScheduler(timezone=self._c.main.timezone)
 
-        while True:
-            schedule.run_pending()
-            sleep(1)
+        if self._c.metrics.enabled:
+            self._metrics_refresh()
+            self._scheduler.add_job(
+                self._metrics_refresh,
+                CronTrigger(hour=0, minute=0),
+                id='metrics_refresh',
+                replace_existing=True
+            )
+
+        self._scheduler.add_job(
+            self._clean_cache,
+            IntervalTrigger(seconds=self._c.main.cache_age),
+            id='clean_cache',
+            replace_existing=True
+        )
+
+        self._scheduler.add_job(
+            self.compute_all_aggregations,
+            IntervalTrigger(minutes=5),
+            id='aggregate_all',
+            replace_existing=True
+        )
+
+        self._scheduler.start()
+        l.info(f'[scheduler] APScheduler started with timezone={self._c.main.timezone}')
 
     # --- 主程序数据访问
 
@@ -388,14 +447,163 @@ class Data:
                 self.last_updated = time()
 
                 if status and status != old_status and device.using:
-                    l.debug(f'[usage_log] app changed: {old_status} -> {status} on {device.show_name}')
+                    log_app_name = status
+                    if isinstance(device.fields, dict) and device.fields.get('app_name'):
+                        log_app_name = device.fields['app_name']
+                    l.debug(f'[usage_log] app changed: {old_status} -> {log_app_name} on {device.show_name}')
+
+                    now_ts = datetime.utcnow()
+                    dev_name = device.show_name or id
+
+                    prev_log = _UsageLog.query.filter_by(
+                        device_name=dev_name
+                    ).order_by(_UsageLog.id.desc()).first()
+                    if prev_log and prev_log.duration is None:
+                        prev_ts = prev_log.timestamp
+                        if prev_ts.tzinfo is not None:
+                            prev_ts = prev_ts.replace(tzinfo=None)
+                        secs = int((now_ts - prev_ts).total_seconds())
+                        if 0 < secs < 7200:
+                            prev_log.duration = secs
+
                     log = _UsageLog(
-                        timestamp=datetime.now(dt_timezone.utc),
-                        app_name=status,
-                        device_name=device.show_name or id
+                        timestamp=now_ts,
+                        app_name=log_app_name,
+                        device_name=dev_name
                     )
                     db.session.add(log)
                     db.session.commit()
+        except SQLAlchemyError as e:
+            self._throw(e)
+
+    def _match_category(self, app_name: str, categories: list[_AppCategory]) -> str:
+        app_lower = app_name.lower()
+        for cat in categories:
+            if cat.pattern.lower() in app_lower:
+                return cat.category
+        return '未分类'
+
+    def categorize_app(self, app_name: str) -> str:
+        '''
+        根据分类规则匹配应用名，返回分类标签
+        未匹配返回 '未分类'
+        '''
+        try:
+            with self._app.app_context():
+                return self._match_category(app_name, _AppCategory.query.all())
+        except SQLAlchemyError as e:
+            self._throw(e)
+
+    def get_display_toggles(self) -> dict:
+        try:
+            with self._app.app_context():
+                t = _DisplayToggle.query.first()
+                if not t:
+                    return {'show_current_status': True, 'show_today_usage': True, 'show_category_chart': True, 'show_heatmap': False}
+                return {
+                    'show_current_status': t.show_current_status,
+                    'show_today_usage': t.show_today_usage,
+                    'show_category_chart': t.show_category_chart,
+                    'show_heatmap': t.show_heatmap
+                }
+        except SQLAlchemyError as e:
+            self._throw(e)
+
+    def get_categories(self) -> list[dict]:
+        try:
+            with self._app.app_context():
+                cats: list[_AppCategory] = _AppCategory.query.all()
+                return [{'id': c.id, 'pattern': c.pattern, 'category': c.category, 'color': c.color} for c in cats]
+        except SQLAlchemyError as e:
+            self._throw(e)
+
+    def _get_period_range(self, period: str) -> tuple[datetime, datetime]:
+        tz = pytz.timezone(self._c.main.timezone)
+        now = datetime.now(tz)
+        if period == 'today':
+            start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+            end = now
+        elif period == 'week':
+            start = (now - timedelta(days=now.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
+            end = now
+        elif period == 'month':
+            start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            end = now
+        else:
+            start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+            end = now
+        return start.astimezone(dt_timezone.utc).replace(tzinfo=None), end.astimezone(dt_timezone.utc).replace(tzinfo=None)
+
+    def compute_aggregation(self, period: str):
+        try:
+            with self._app.app_context():
+                start, end = self._get_period_range(period)
+                logs: list[_UsageLog] = _UsageLog.query.filter(
+                    _UsageLog.timestamp >= start,
+                    _UsageLog.timestamp <= end
+                ).order_by(_UsageLog.device_name, _UsageLog.timestamp).all()
+
+                if not logs:
+                    return
+
+                categories: list[_AppCategory] = _AppCategory.query.all()
+
+                devices: dict[str, list[_UsageLog]] = {}
+                for log in logs:
+                    devices.setdefault(log.device_name, []).append(log)
+
+                def _to_naive(ts: datetime) -> datetime:
+                    return ts.replace(tzinfo=None) if ts.tzinfo else ts
+
+                app_durations: dict[str, int] = {}
+                for device_logs in devices.values():
+                    for i in range(len(device_logs)):
+                        log = device_logs[i]
+                        log_ts = _to_naive(log.timestamp)
+                        if i < len(device_logs) - 1:
+                            next_ts = _to_naive(device_logs[i + 1].timestamp)
+                            duration = int((next_ts - log_ts).total_seconds())
+                        else:
+                            if log.duration:
+                                duration = log.duration
+                            else:
+                                duration = int((_to_naive(end) - log_ts).total_seconds())
+                        if 0 < duration < 7200:
+                            app_name = log.app_name
+                            app_durations[app_name] = app_durations.get(app_name, 0) + duration
+
+                _AggregatedUsage.query.filter_by(period=period).delete()
+                for app_name, seconds in app_durations.items():
+                    if seconds > 0:
+                        entry = _AggregatedUsage(
+                            period=period,
+                            period_start=start,
+                            app_name=app_name,
+                            total_seconds=seconds,
+                            category=self._match_category(app_name, categories)
+                        )
+                        db.session.add(entry)
+                db.session.commit()
+                l.info(f'[aggregation] {period}: {len(app_durations)} apps computed')
+        except SQLAlchemyError as e:
+            l.error(f'[aggregation] {period} failed: {e}')
+
+    def compute_all_aggregations(self):
+        for period in ('today', 'week', 'month'):
+            self.compute_aggregation(period)
+
+    def get_aggregated_usage(self, period: str) -> list[dict]:
+        try:
+            with self._app.app_context():
+                rows: list[_AggregatedUsage] = _AggregatedUsage.query.filter_by(
+                    period=period
+                ).order_by(_AggregatedUsage.total_seconds.desc()).all()
+                return [{
+                    'app_name': r.app_name,
+                    'category': r.category,
+                    'seconds': r.total_seconds,
+                    'computed_at': r.computed_at.isoformat() if r.computed_at else None
+                } for r in rows]
         except SQLAlchemyError as e:
             self._throw(e)
 

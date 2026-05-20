@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ page_title }}</title>
+    <link rel="icon" href="{{ page_favicon }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='main.css') }}">
+    {% if page_background %}
+    <style>
+        body { background-image: url('{{ page_background }}'); }
+    </style>
+    {% endif %}
+    <script src="{{ url_for('static', filename='chart.min.js') }}"></script>
+</head>
+<body>
+    <div class="container" style="max-width: 800px;">
+        <div class="card">
+            <h2>使用时长</h2>
+            <div style="display: flex; gap: 8px; justify-content: center; margin-bottom: 16px;">
+                <button class="btn btn-primary period-btn" data-period="today">今日</button>
+                <button class="btn btn-secondary period-btn" data-period="week">本周</button>
+                <button class="btn btn-secondary period-btn" data-period="month">本月</button>
+            </div>
+            <div id="usage-list" style="text-align: left; min-height: 100px;">
+                <p style="color: var(--text-secondary); text-align: center;">加载中...</p>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>分类占比</h2>
+            <div style="max-width: 320px; margin: 0 auto;">
+                <canvas id="category-chart"></canvas>
+            </div>
+            <p id="chart-empty" style="color: var(--text-secondary); display: none;">暂无数据</p>
+        </div>
+
+        <a href="/" style="display: block; text-align: center; margin-top: 16px; font-size: 0.9em;">← 返回主页</a>
+    </div>
+
+    <script>
+        let chartInstance = null;
+        const periodBtns = document.querySelectorAll('.period-btn');
+
+        function setActiveBtn(period) {
+            periodBtns.forEach(b => {
+                b.className = b.dataset.period === period ? 'btn btn-primary period-btn' : 'btn btn-secondary period-btn';
+            });
+        }
+
+        async function loadUsage(period) {
+            setActiveBtn(period);
+            const listEl = document.getElementById('usage-list');
+            listEl.innerHTML = '<p style="color: var(--text-secondary); text-align: center;">加载中...</p>';
+
+            const resp = await fetch(`/api/stats/usage?period=${period}`);
+            const data = await resp.json();
+            const apps = data.apps || [];
+
+            if (apps.length === 0) {
+                listEl.innerHTML = '<p style="color: var(--text-muted); text-align: center;">暂无数据</p>';
+                drawChart([]);
+                return;
+            }
+
+            const total = apps.reduce((s, a) => s + a.seconds, 0);
+            listEl.innerHTML = apps.map(a => {
+                const pct = total > 0 ? (a.seconds / total * 100).toFixed(1) : 0;
+                const h = Math.floor(a.seconds / 3600);
+                const m = Math.floor((a.seconds % 3600) / 60);
+                const timeStr = h > 0 ? `${h}h ${m}m` : `${m}m`;
+                return `<div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border);">
+                    <span><span style="display: inline-block; width: 8px; height: 8px; border-radius: 2px; background: #5470c6; margin-right: 8px;"></span>${escapeHtml(a.app_name)}</span>
+                    <span style="color: var(--text-secondary);">${timeStr} (${pct}%)</span>
+                </div>`;
+            }).join('');
+
+            drawChart(apps);
+        }
+
+        function drawChart(apps) {
+            const ctx = document.getElementById('category-chart');
+            const emptyEl = document.getElementById('chart-empty');
+
+            if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
+
+            if (!apps || apps.length === 0) {
+                emptyEl.style.display = 'block';
+                ctx.style.display = 'none';
+                return;
+            }
+
+            const categoryMap = {};
+            const colors = ['#5470c6', '#91cc75', '#fac858', '#ee6666', '#73c0de', '#3ba272', '#fc8452', '#9a60b4'];
+            let ci = 0;
+            apps.forEach(a => {
+                const cat = a.category || '未分类';
+                if (!categoryMap[cat]) {
+                    categoryMap[cat] = { seconds: 0, color: colors[ci % colors.length] };
+                    ci++;
+                }
+                categoryMap[cat].seconds += a.seconds;
+            });
+
+            const labels = Object.keys(categoryMap);
+            const values = labels.map(l => categoryMap[l].seconds);
+            const bgColors = labels.map(l => categoryMap[l].color);
+
+            emptyEl.style.display = 'none';
+            ctx.style.display = 'block';
+
+            chartInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: values,
+                        backgroundColor: bgColors,
+                        borderWidth: 2,
+                        borderColor: getComputedStyle(document.body).getPropertyValue('--bg-surface').trim() || '#fff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                color: getComputedStyle(document.body).getPropertyValue('--text-secondary').trim() || '#666',
+                                padding: 16,
+                                font: { size: 13 }
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(ctx) {
+                                    const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                                    const pct = total > 0 ? (ctx.raw / total * 100).toFixed(1) : 0;
+                                    const h = Math.floor(ctx.raw / 3600);
+                                    const m = Math.floor((ctx.raw % 3600) / 60);
+                                    return ` ${ctx.label}: ${h}h ${m}m (${pct}%)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        periodBtns.forEach(btn => {
+            btn.addEventListener('click', () => loadUsage(btn.dataset.period));
+        });
+
+        loadUsage('today');
+    </script>
+</body>
+</html>

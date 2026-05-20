@@ -23,11 +23,11 @@ dependencies = [
     # Colorful log
     "colorama>=0.4.6",
     # Scheduled tasks
-    "schedule>=1.2.2",
     "flask-admin>=2.2.0",
     "httpx>=0.28.1",
     "pywin32>=311",
     "psutil>=7.2.2",
+    "apscheduler[sqlalchemy]>=3.11.2",
 ]
 
 [project.urls]
