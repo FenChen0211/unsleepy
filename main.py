@@ -494,13 +494,9 @@ def favicon():
 @app.route('/'+'git'+'hub')
 def git_hub():
     '''
-    这里谁来了都改不了!
+    Redirect to this fork's repository.
     '''
-    # ~~我要改~~
-    # ~~-- NT~~
-    # **不准改, 敢改我就撤了你的 member** -- wyf9
-    # noooooooooooooooo -- NT
-    return flask.redirect('ht'+'tps:'+'//git'+'hub.com/'+'slee'+'py-'+'project/sle'+'epy', 301)
+    return flask.redirect(c.page.learn_more_link, 301)
 
 
 @app.route('/none')
