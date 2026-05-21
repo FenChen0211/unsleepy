@@ -33,7 +33,7 @@
     function ensureECharts(cb) {
         if (window.echarts) { cb(); return; }
         var s = document.createElement('script');
-        s.src = 'https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js';
+        s.src = '/static/echarts.min.js';
         s.onload = cb;
         document.head.appendChild(s);
     }

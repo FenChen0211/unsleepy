@@ -418,7 +418,8 @@ class Data:
         排序后设备列表
         '''
         try:
-            uc = _UserConfig.query.first()
+            with self._app.app_context():
+                uc = _UserConfig.query.first()
             _using_first = uc.using_first if uc else self._c.status.using_first
             _sorted = uc.sorted_devices if uc else self._c.status.sorted
             _not_using = uc.not_using_text or self._c.status.not_using if uc else self._c.status.not_using
