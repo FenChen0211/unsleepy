@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ page_title }}</title>
     <link rel="icon" href="{{ page_favicon }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='main.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='main.css') }}?v=4">
     {% if page_background %}
     <style>body { background-image: url('{{ page_background }}'); }</style>
     {% endif %}
@@ -13,36 +13,48 @@
 </head>
 <body>
     <div class="container" style="max-width: 800px;">
-        <div class="card" style="text-align: center;">
+        <div class="card">
             <h1 style="font-size: 2em; margin-bottom: 4px;">2026 年度报告</h1>
             <p style="color: var(--text-secondary);" id="annual-subtitle">加载中...</p>
         </div>
 
         <div class="card">
-            <h2 style="text-align: center;">年度概览</h2>
-            <div id="annual-overview" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px; text-align: center;">
-                <div><span style="font-size: 2em; color: var(--accent);" id="ov-total-hours">--</span><br/><span style="color: var(--text-secondary); font-size: 0.85em;">总小时</span></div>
-                <div><span style="font-size: 2em; color: #91cc75;" id="ov-active-days">--</span><br/><span style="color: var(--text-secondary); font-size: 0.85em;">活跃天数</span></div>
-                <div><span style="font-size: 2em; color: #fac858;" id="ov-top-app">--</span><br/><span style="color: var(--text-secondary); font-size: 0.85em;">最常用</span></div>
-                <div><span style="font-size: 2em; color: #ee6666;" id="ov-apps-count">--</span><br/><span style="color: var(--text-secondary); font-size: 0.85em;">应用总数</span></div>
+            <h2>年度概览</h2>
+            <div id="annual-overview" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 16px; text-align: center; margin-top: 16px;">
+                <div>
+                    <span style="font-size: 2em; font-weight: 600; color: var(--accent);" id="ov-total-hours">--</span>
+                    <br/><span style="color: var(--text-secondary); font-size: 0.85em;">总小时</span>
+                </div>
+                <div>
+                    <span style="font-size: 2em; font-weight: 600; color: #22c55e;" id="ov-active-days">--</span>
+                    <br/><span style="color: var(--text-secondary); font-size: 0.85em;">活跃天数</span>
+                </div>
+                <div>
+                    <span style="font-size: 2em; font-weight: 600; color: #eab308;" id="ov-top-app">--</span>
+                    <br/><span style="color: var(--text-secondary); font-size: 0.85em;">最常用</span>
+                </div>
+                <div>
+                    <span style="font-size: 2em; font-weight: 600; color: #ef4444;" id="ov-apps-count">--</span>
+                    <br/><span style="color: var(--text-secondary); font-size: 0.85em;">应用总数</span>
+                </div>
             </div>
         </div>
 
         <div class="card">
-            <h2 style="text-align: center;">年度 Top 10</h2>
-            <div id="annual-toplist" style="text-align: left; min-height: 60px;">
+            <h2>年度 Top 10</h2>
+            <div id="annual-toplist" style="text-align: left; min-height: 60px; margin-top: 12px;">
                 <p style="color: var(--text-secondary); text-align: center;">加载中...</p>
             </div>
         </div>
 
         <div class="card">
-            <h2 style="text-align: center;">分类占比</h2>
-            <div style="max-width: 300px; margin: 0 auto;">
+            <h2>分类占比</h2>
+            <div style="max-width: 300px; margin: 16px auto 0;">
                 <canvas id="annual-category-chart"></canvas>
             </div>
         </div>
 
-        <a href="/" style="display: block; text-align: center; margin-top: 16px; font-size: 0.9em;">← 返回主页</a>
+        <a href="/" style="display: block; text-align: center; margin-top: 16px; font-size: 0.9em; color: var(--text-secondary);">← 返回主页</a>
     </div>
 
     <script>
@@ -74,17 +86,16 @@
 
             const listEl = document.getElementById('annual-toplist');
             const top10 = apps.slice(0, 10);
-            const colors = ['#5470c6', '#91cc75', '#fac858', '#ee6666', '#73c0de', '#9a60b4', '#fc8452', '#3ba272', '#ea7ccc', '#546fc6'];
+            const colors = ['#3b82f6', '#22c55e', '#eab308', '#ef4444', '#06b6d4', '#a855f7', '#f97316', '#10b981', '#ec4899', '#6366f1'];
             listEl.innerHTML = top10.map((a, i) => {
                 const h = Math.floor(a.seconds / 3600);
                 const m = Math.floor((a.seconds % 3600) / 60);
                 const pct = total > 0 ? (a.seconds / total * 100).toFixed(1) : 0;
-                const barW = total > 0 ? (a.seconds / total * 100).toFixed(0) : 0;
-                return '<div style="display: flex; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--border);">' +
+                return '<div style="display: flex; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 0.9em;">' +
                     '<span style="width: 24px; text-align: center; font-weight: bold; color: ' + colors[i] + ';">' + (i + 1) + '</span>' +
                     '<span style="flex: 1; margin-left: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">' + escapeHtml(a.app_name) + '</span>' +
-                    '<span style="margin-left: 8px; color: var(--text-secondary); white-space: nowrap; font-size: 0.9em;">' + (h > 0 ? h + 'h ' : '') + m + 'm</span>' +
-                    '<span style="margin-left: 8px; color: var(--text-secondary); font-size: 0.85em;">' + pct + '%</span>' +
+                    '<span style="margin-left: 8px; color: var(--text-secondary); white-space: nowrap;">' + (h > 0 ? h + 'h ' : '') + m + 'm</span>' +
+                    '<span style="margin-left: 8px; color: var(--text-muted); font-size: 0.85em;">' + pct + '%</span>' +
                 '</div>';
             }).join('');
 
@@ -94,7 +105,7 @@
         function drawCategoryChart(apps, total) {
             const ctx = document.getElementById('annual-category-chart');
             const catMap = {};
-            const colorList = ['#5470c6', '#91cc75', '#fac858', '#ee6666', '#73c0de', '#3ba272', '#fc8452', '#9a60b4'];
+            const colorList = ['#3b82f6', '#22c55e', '#eab308', '#ef4444', '#06b6d4', '#10b981', '#f97316', '#a855f7'];
             let ci = 0;
             apps.forEach(a => {
                 const cat = a.category || '未分类';
@@ -114,7 +125,7 @@
                         data: values,
                         backgroundColor: bgColors,
                         borderWidth: 2,
-                        borderColor: getComputedStyle(document.body).getPropertyValue('--bg-surface').trim() || '#fff'
+                        borderColor: '#141414'
                     }]
                 },
                 options: {
@@ -123,7 +134,7 @@
                         legend: {
                             position: 'bottom',
                             labels: {
-                                color: getComputedStyle(document.body).getPropertyValue('--text-secondary').trim() || '#666',
+                                color: '#9a9a9a',
                                 padding: 14,
                                 font: { size: 12 }
                             }

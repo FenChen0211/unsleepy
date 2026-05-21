@@ -5,11 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ page_title }}</title>
     <link rel="icon" href="{{ page_favicon }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='main.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='main.css') }}?v=4">
     {% if page_background %}
-    <style>
-        body { background-image: url('{{ page_background }}'); }
-    </style>
+    <style>body { background-image: url('{{ page_background }}'); }</style>
     {% endif %}
     <script src="{{ url_for('static', filename='chart.min.js') }}"></script>
 </head>
@@ -17,36 +15,33 @@
     <div class="container" style="max-width: 800px;">
         <div class="card">
             <h2>使用时长</h2>
-            <div style="display: flex; gap: 6px; justify-content: center; margin-bottom: 6px;">
-                <select id="device-select" style="display: none; padding: 4px 8px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--bg-elevated); color: var(--text-primary); font-size: 0.85em; max-width: 200px;">
+            <div style="display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin: 12px 0;">
+                <select id="device-select" style="display: none; padding: 6px 10px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--bg-elevated); color: var(--text-primary); font-size: 0.85em;">
                     <option value="">全部设备</option>
                 </select>
-            </div>
-            <div style="display: flex; gap: 8px; justify-content: center; margin-bottom: 16px;">
                 <button class="btn btn-primary period-btn" data-period="today">今日</button>
                 <button class="btn btn-secondary period-btn" data-period="week">本周</button>
                 <button class="btn btn-secondary period-btn" data-period="month">本月</button>
             </div>
-            <div id="usage-list" style="text-align: left; min-height: 100px;">
+            <div id="usage-list" style="text-align: left; min-height: 80px; margin-top: 8px;">
                 <p style="color: var(--text-secondary); text-align: center;">加载中...</p>
             </div>
         </div>
 
         <div class="card">
             <h2>分类占比</h2>
-            <div style="max-width: 320px; margin: 0 auto;">
+            <div style="max-width: 320px; margin: 16px auto 0;">
                 <canvas id="category-chart"></canvas>
             </div>
-            <p id="chart-empty" style="color: var(--text-secondary); display: none;">暂无数据</p>
+            <p id="chart-empty" style="color: var(--text-secondary); display: none; text-align: center;">暂无数据</p>
         </div>
 
-        <a href="/" style="display: block; text-align: center; margin-top: 16px; font-size: 0.9em;">← 返回主页</a>
+        <a href="/" style="display: block; text-align: center; margin-top: 16px; font-size: 0.9em; color: var(--text-secondary);">← 返回主页</a>
     </div>
 
     <script>
         let chartInstance = null;
         const periodBtns = document.querySelectorAll('.period-btn');
-
         let currentPeriod = 'today';
         let currentDevice = '';
 
@@ -80,9 +75,12 @@
                 const h = Math.floor(a.seconds / 3600);
                 const m = Math.floor((a.seconds % 3600) / 60);
                 const timeStr = h > 0 ? `${h}h ${m}m` : `${m}m`;
-                return `<div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border);">
-                    <span><span style="display: inline-block; width: 8px; height: 8px; border-radius: 2px; background: #5470c6; margin-right: 8px;"></span>${escapeHtml(a.app_name)}</span>
-                    <span style="color: var(--text-secondary);">${timeStr} (${pct}%)</span>
+                return `<div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 0.9em;">
+                    <span style="display: flex; align-items: center; gap: 8px; overflow: hidden;">
+                        <span style="display: inline-block; width: 8px; height: 8px; border-radius: 2px; background: var(--accent); flex-shrink: 0;"></span>
+                        <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(a.app_name)}</span>
+                    </span>
+                    <span style="color: var(--text-secondary); white-space: nowrap; flex-shrink: 0;">${timeStr} (${pct}%)</span>
                 </div>`;
             }).join('');
 
@@ -102,7 +100,7 @@
             }
 
             const categoryMap = {};
-            const colors = ['#5470c6', '#91cc75', '#fac858', '#ee6666', '#73c0de', '#3ba272', '#fc8452', '#9a60b4'];
+            const colors = ['#3b82f6', '#22c55e', '#eab308', '#ef4444', '#06b6d4', '#10b981', '#f97316', '#a855f7'];
             let ci = 0;
             apps.forEach(a => {
                 const cat = a.category || '未分类';
@@ -128,7 +126,7 @@
                         data: values,
                         backgroundColor: bgColors,
                         borderWidth: 2,
-                        borderColor: getComputedStyle(document.body).getPropertyValue('--bg-surface').trim() || '#fff'
+                        borderColor: '#141414'
                     }]
                 },
                 options: {
@@ -137,9 +135,9 @@
                         legend: {
                             position: 'bottom',
                             labels: {
-                                color: getComputedStyle(document.body).getPropertyValue('--text-secondary').trim() || '#666',
+                                color: '#9a9a9a',
                                 padding: 16,
-                                font: { size: 13 }
+                                font: { size: 12 }
                             }
                         },
                         tooltip: {

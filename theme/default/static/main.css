@@ -77,8 +77,10 @@ a:hover {
   justify-content: center;
   width: 100%;
   max-width: 720px;
-  padding: 24px 16px;
+  padding: 24px 24px;
+  margin: 0 auto;
   box-sizing: border-box;
+  align-items: center;
 }
 
 /* ===== Card (Vertical Stack — Original Style) ===== */
@@ -88,19 +90,35 @@ a:hover {
   -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.2);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 2rem 1.5rem;
-  margin: 0.75rem auto;
+  padding: 2rem 2.5rem;
+  margin: 0.75rem 0;
   width: 100%;
+  max-width: 100%;
   text-align: center;
   box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.04), var(--shadow-md);
   transition: transform var(--transition), box-shadow var(--transition), border-color var(--transition);
   box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .card:hover {
   transform: translateY(-1px);
   box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.06), var(--shadow-lg);
   border-color: var(--border-strong);
+}
+
+.card > * {
+  width: 100%;
+  max-width: 100%;
+  text-align: center;
+}
+
+/* Allow left alignment for list-like content inside cards */
+.card > .left-align,
+.card > [style*="text-align: left"] {
+  text-align: left !important;
 }
 
 .card h1 {
@@ -161,6 +179,14 @@ a:hover {
   text-align: center;
   box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.04), var(--shadow-md);
   box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.card-tile > * {
+  width: 100%;
+  max-width: 100%;
 }
 
 .card-tile::before {
