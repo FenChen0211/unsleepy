@@ -6,7 +6,4 @@
     <a href="/panel">管理面板</a>
 </p>
 
-<div style="margin-top: 10px">
-    主题: {% for theme in available_themes %}
-    <a href="/?theme={{ theme }}">{{ theme }}</a>{% if not loop.last %} | {% endif %} {% endfor %}
-</div>
+<!-- [已移除] 主题切换 —— 当前仅保留暗色主题。后端接口保留。 -->

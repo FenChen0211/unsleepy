@@ -391,8 +391,9 @@ def index():
         more_text=more_text,
         username=display_name,
         learn_more_link=uc.get('learn_more_link') or c.page.learn_more_link,
-        learn_more_text=uc.get('learn_more_text') or c.page.learn_more_text,
-        available_themes=u.themes_available()
+        learn_more_text=uc.get('learn_more_text') or c.page.learn_more_text
+        # [已移除] available_themes —— 当前仅保留暗色主题，前端切换UI已隐藏。
+        # 如需恢复多主题，重新传入 available_themes=u.themes_available() 并在模板中添加 selector。
     )
 
     # 加载使用统计卡片
@@ -903,7 +904,8 @@ def admin_panel():
         'panel.html',
         c=c,
         current_theme=flask.g.theme,
-        available_themes=u.themes_available(),
+        # [已移除] available_themes —— 当前仅保留暗色主题，前端切换UI已隐藏。
+        # 如需恢复多主题，重新传入 available_themes=u.themes_available() 并在模板中添加 selector。
         cards=cards,
         inject=inject
     ) or flask.abort(404)

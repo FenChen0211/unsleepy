@@ -5,8 +5,5 @@
     <p> - <a href="{{ learn_more_link }}" target="_blank">{{ learn_more_text | safe }}</a></p>
     <p> - <a href="/panel">admin</a></p>
 
-    <p>> 主题选择:</p>
-    {% for theme in available_themes %}
-    <p>- <a href="/?theme={{ theme }}" style="color: rgb(0, 255, 0);">theme {{ theme }}</a></p>
-    {% endfor %}
+    <!-- [已移除] 主题切换 —— 当前仅保留暗色主题。后端接口保留。 -->
 </div>

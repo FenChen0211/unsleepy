@@ -38,19 +38,7 @@
                 </div>
             </div>
 
-            <div class="panel-card">
-                <div class="panel-section">
-                    <h2 class="panel-section-title">$ theme_manager.sh</h2>
-                    <p>> 当前主题: <span id="current-theme">{{ current_theme }}</span><span class="console-cursor">_</span></p>
-                    <div class="status-selector" id="theme-selector">
-                        {% for theme in available_themes %}
-                        <a href="/panel?theme={{ theme }}">
-                            <div class="status-item {% if current_theme == theme %}active{% endif %}">theme {{ theme }}</div>
-                        </a>
-                        {% endfor %}
-                    </div>
-                </div>
-            </div>
+            <!-- [已移除] 主题切换UI —— 当前仅保留暗色主题。后端接口保留。 -->
 
             <div class="panel-card">
                 <div class="panel-section">

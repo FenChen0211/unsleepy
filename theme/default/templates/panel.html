@@ -77,16 +77,9 @@
                 </div>
                 {% endif %}
 
-                <div class="panel-card">
-                    <h2 class="tech-title">主题设置
-                        <span class="section-desc">切换前台展示页的视觉风格</span>
-                    </h2>
-                    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                        主题: {% for theme in available_themes %}
-                        <a href="/panel?theme={{ theme }}" class="btn btn-secondary" style="font-size: 0.85em;">{{ theme }}</a>
-                        {% endfor %}
-                    </div>
-                </div>
+                <!-- [已移除] 主题切换UI —— 当前仅保留暗色主题，如需恢复多主题支持，
+                     可重新添加 theme selector 并传入 available_themes 参数。
+                     后端主题系统（flask.g.theme / cookie / render_template fallback）仍然保留。 -->
 
                 {{ inject | safe }}
             </section>

@@ -29,10 +29,6 @@
         </svg>
         管理面板
     </a>
-<div style="margin-top: 10px;">
-    主题:
-    {% for theme in available_themes %}
-    <a href="/?theme={{ theme }}">{{ theme }}</a>{% if not loop.last %} | {%endif %}
-    {% endfor %}
-</div>
+<!-- [已移除] 主题切换 —— 当前仅保留暗色主题。
+     如需恢复，重新添加 theme 循环并传入 available_themes。 -->
 </p>

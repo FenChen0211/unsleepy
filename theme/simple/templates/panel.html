@@ -73,17 +73,7 @@
                 <div id="status-selector"></div>
             </div>
 
-            <div class="card">
-                <h2>主题设置</h2>
-                <p>当前主题: <span id="current-theme">{{ current_theme }}</span></p>
-                <div id="theme-selector">
-                    {% for theme in available_themes %}
-                    <a href="/panel?theme={{ theme }}">
-                        <div class="status-item {% if current_theme == theme %}active{% endif %}" style="color: black">{{ theme }} 主题</div>
-                    </a>
-                    {% endfor %}
-                </div>
-            </div>
+            <!-- [已移除] 主题切换UI —— 当前仅保留暗色主题。后端接口保留。 -->
 
             <div class="card">
                 <h2>设备管理</h2>
