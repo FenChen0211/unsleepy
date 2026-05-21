@@ -145,6 +145,13 @@ class _UserConfig(db.Model):
     __tablename__ = 'user_config'
     id: Mapped[int] = mapped_column(Integer, primary_key=True, default=0)
     page_background_url: Mapped[str] = mapped_column(String(LIMIT), default='')
+    page_name: Mapped[str] = mapped_column(String(LIMIT), default='')
+    page_favicon: Mapped[str] = mapped_column(String(LIMIT), default='')
+    learn_more_text: Mapped[str] = mapped_column(String(LIMIT), default='')
+    learn_more_link: Mapped[str] = mapped_column(String(LIMIT), default='')
+    not_using_text: Mapped[str] = mapped_column(String(LIMIT), default='')
+    sorted_devices: Mapped[bool] = mapped_column(Boolean, default=False)
+    using_first: Mapped[bool] = mapped_column(Boolean, default=False)
     focus_default_minutes: Mapped[int] = mapped_column(Integer, default=25)
     focus_rest_minutes: Mapped[int] = mapped_column(Integer, default=5)
     heatmap_default_days: Mapped[int] = mapped_column(Integer, default=90)
@@ -411,10 +418,15 @@ class Data:
         排序后设备列表
         '''
         try:
+            uc = _UserConfig.query.first()
+            _using_first = uc.using_first if uc else self._c.status.using_first
+            _sorted = uc.sorted_devices if uc else self._c.status.sorted
+            _not_using = uc.not_using_text or self._c.status.not_using if uc else self._c.status.not_using
+
             if self.private_mode:
                 # 隐私模式
                 devicelst = {}
-            elif self._c.status.using_first:
+            elif _using_first:
                 # 使用中优先
                 devicelst = {}  # devicelst = device_using
                 device_not_using = {}
@@ -423,12 +435,12 @@ class Data:
                     if v.get('using') == True:  # * 正在使用
                         devicelst[k] = v
                     elif v.get('using') == False:  # * 未在使用
-                        if self._c.status.not_using:
-                            v['status'] = self._c.status.not_using  # 如锁定了未在使用时状态名, 则替换
+                        if _not_using:
+                            v['status'] = _not_using
                         device_not_using[k] = v
                     else:  # * 未知
                         device_unknown[k] = v
-                if self._c.status.sorted:
+                if _sorted:
                     devicelst = dict(sorted(devicelst.items()))
                     device_not_using = dict(sorted(device_not_using.items()))
                     device_unknown = dict(sorted(device_unknown.items()))
@@ -439,11 +451,11 @@ class Data:
                 # 正常获取
                 devicelst = self._raw_device_list_dict
                 # 如锁定了未在使用时状态名, 则替换
-                if self._c.status.not_using:
+                if _not_using:
                     for d in devicelst.keys():
                         if devicelst[d].get('using') == False:
-                            devicelst[d]['status'] = self._c.status.not_using
-                if self._c.status.sorted:
+                            devicelst[d]['status'] = _not_using
+                if _sorted:
                     devicelst = dict(sorted(devicelst.items()))
             return devicelst
         except SQLAlchemyError as e:
@@ -599,6 +611,13 @@ class Data:
                 if not c:
                     return {
                         'page_background_url': '',
+                        'page_name': '',
+                        'page_favicon': '',
+                        'learn_more_text': '',
+                        'learn_more_link': '',
+                        'not_using_text': '',
+                        'sorted_devices': False,
+                        'using_first': False,
                         'focus_default_minutes': 25,
                         'focus_rest_minutes': 5,
                         'heatmap_default_days': 90,
@@ -617,6 +636,13 @@ class Data:
                 api_key_display = mask if c.llm_api_key else ''
                 return {
                     'page_background_url': c.page_background_url or '',
+                    'page_name': c.page_name or '',
+                    'page_favicon': c.page_favicon or '',
+                    'learn_more_text': c.learn_more_text or '',
+                    'learn_more_link': c.learn_more_link or '',
+                    'not_using_text': c.not_using_text or '',
+                    'sorted_devices': c.sorted_devices,
+                    'using_first': c.using_first,
                     'focus_default_minutes': c.focus_default_minutes,
                     'focus_rest_minutes': c.focus_rest_minutes,
                     'heatmap_default_days': c.heatmap_default_days,

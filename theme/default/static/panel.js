@@ -211,6 +211,24 @@ async function loadConfig() {
     } catch (e) {}
 
     const sections = [
+        { title: '页面个性化', items: [
+            { type: 'text', key: 'page_name', name: '用户昵称',
+              desc: '显示在首页卡片和页面标题中的名字。留空则使用配置文件默认值', val: c.page_name || '', placeholder: 'User', max: 64 },
+            { type: 'text', key: 'page_favicon', name: '站点图标URL',
+              desc: '浏览器标签页上显示的小图标。留空则使用默认图标', val: c.page_favicon || '', placeholder: 'https://...' },
+            { type: 'text', key: 'learn_more_text', name: '了解更多-文字',
+              desc: '首页More Info卡片底部的自定义链接文字。留空则使用默认值', val: c.learn_more_text || '', placeholder: 'GitHub Repo', max: 64 },
+            { type: 'text', key: 'learn_more_link', name: '了解更多-链接',
+              desc: '首页More Info卡片底部的自定义链接地址', val: c.learn_more_link || '', placeholder: 'https://...' }
+        ]},
+        { title: '设备列表', items: [
+            { type: 'bool', key: 'sorted_devices', name: '设备名A-Z排序',
+              desc: '开启后设备列表按名称字母顺序排列' },
+            { type: 'bool', key: 'using_first', name: '使用中设备优先',
+              desc: '开启后正在使用的设备排在列表最前面（优先级高于A-Z排序）' },
+            { type: 'text', key: 'not_using_text', name: '未在使用时显示文字',
+              desc: '当设备状态为"未在使用"时替换显示的文字。留空则显示设备原始状态', val: c.not_using_text || '', placeholder: '未在使用', max: 64 }
+        ]},
         { title: '外观', items: [
             { type: 'text', key: 'page_background_url', name: '背景图片URL',
               desc: '设置后前台和后台页面使用该图片作为背景。留空则使用纯黑背景。填写完整URL如 https://img.example.com/bg.jpg',

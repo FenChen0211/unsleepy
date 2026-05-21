@@ -24,7 +24,7 @@ def _get_uc():
         return _UserConfig.query.first()
 
 
-@p.index_card(name='llm-insight')
+@p.index_card('llm-insight')
 def llm_insight_card():
     import flask
     try:

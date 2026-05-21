@@ -376,10 +376,12 @@ def index():
             visit_total=total
         )
     # 加载系统卡片
+    uc = d.get_user_config()
+    display_name = uc.get('page_name') or c.page.name
     main_card: str = render_template(  # type: ignore
         'main.index.html',
         _dirname='cards',
-        username=c.page.name,
+        username=display_name,
         status=d.status_dict[1],
         last_updated=datetime.fromtimestamp(d.last_updated, timezone.utc).strftime(f'%Y-%m-%d %H:%M:%S') + ' (UTC+8)'
     )
@@ -387,9 +389,9 @@ def index():
         'more_info.index.html',
         _dirname='cards',
         more_text=more_text,
-        username=c.page.name,
-        learn_more_link=c.page.learn_more_link,
-        learn_more_text=c.page.learn_more_text,
+        username=display_name,
+        learn_more_link=uc.get('learn_more_link') or c.page.learn_more_link,
+        learn_more_text=uc.get('learn_more_text') or c.page.learn_more_text,
         available_themes=u.themes_available()
     )
 
@@ -470,7 +472,9 @@ def favicon():
     '''
     重定向 /favicon.ico 到用户自定义的 favicon
     '''
-    evt = p.trigger_event(pl.FaviconAccessEvent(c.page.favicon))
+    uc = d.get_user_config()
+    favicon_url = uc.get('page_favicon') or c.page.favicon
+    evt = p.trigger_event(pl.FaviconAccessEvent(favicon_url))
     if evt.interception:
         return evt.interception
     if evt.favicon_url == '/favicon.ico':
@@ -1147,8 +1151,8 @@ def api_user_config():
                     'llm_max_analysis_days': (1, 90),
                     'llm_rate_limit_minutes': (0, 1440)
                 }
-                str_fields = ['page_background_url', 'llm_api_key', 'llm_base_url', 'llm_model', 'llm_system_prompt']
-                bool_fields = ['browser_normalize', 'llm_enabled']
+                str_fields = ['page_background_url', 'page_name', 'page_favicon', 'learn_more_text', 'learn_more_link', 'not_using_text', 'llm_api_key', 'llm_base_url', 'llm_model', 'llm_system_prompt']
+                bool_fields = ['browser_normalize', 'llm_enabled', 'sorted_devices', 'using_first']
                 for k, (lo, hi) in int_fields.items():
                     if k in body:
                         setattr(uc, k, max(lo, min(int(body[k]), hi)))
@@ -1241,10 +1245,12 @@ def api_export_usage():
 
 @app.route('/stats')
 def stats_page():
-    bg = d.get_user_config().get('page_background_url') or c.page.background
+    uc = d.get_user_config()
+    bg = uc.get('page_background_url') or c.page.background
+    display_name = uc.get('page_name') or c.page.name
     return render_template(
         'stats.html',
-        page_title=f'{c.page.name} - 使用统计',
+        page_title=f'{display_name} - 使用统计',
         page_background=bg,
         page_favicon=c.page.favicon
     ) or flask.abort(404)
@@ -1252,10 +1258,12 @@ def stats_page():
 
 @app.route('/stats/annual')
 def annual_page():
-    bg = d.get_user_config().get('page_background_url') or c.page.background
+    uc = d.get_user_config()
+    bg = uc.get('page_background_url') or c.page.background
+    display_name = uc.get('page_name') or c.page.name
     return render_template(
         'annual.html',
-        page_title=f'{c.page.name} - 年度报告',
+        page_title=f'{display_name} - 年度报告',
         page_background=bg,
         page_favicon=c.page.favicon
     ) or flask.abort(404)

@@ -87,13 +87,23 @@ class DisplayToggleView(_SecureMixin, ModelView):
 
 class UserConfigView(_SecureMixin, ModelView):
     column_list = (
-        'page_background_url', 'focus_default_minutes', 'focus_rest_minutes',
+        'page_background_url', 'page_name', 'page_favicon',
+        'learn_more_text', 'learn_more_link', 'not_using_text',
+        'sorted_devices', 'using_first',
+        'focus_default_minutes', 'focus_rest_minutes',
         'heatmap_default_days', 'browser_normalize', 'log_retention_days',
         'llm_enabled', 'llm_api_key', 'llm_base_url', 'llm_model',
         'llm_system_prompt', 'llm_cache_minutes', 'llm_max_analysis_days', 'llm_rate_limit_minutes'
     )
     column_labels = {
         'page_background_url': '背景图片URL',
+        'page_name': '用户昵称',
+        'page_favicon': '站点图标URL',
+        'learn_more_text': '了解更多-文字',
+        'learn_more_link': '了解更多-链接',
+        'not_using_text': '未在使用文本',
+        'sorted_devices': '设备名排序',
+        'using_first': '使用中优先',
         'focus_default_minutes': '专注默认时长(分钟)',
         'focus_rest_minutes': '专注后休息(分钟)',
         'heatmap_default_days': '热力图默认天数',
