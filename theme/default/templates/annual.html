@@ -12,9 +12,15 @@
     <script src="{{ url_for('static', filename='chart.min.js') }}"></script>
 </head>
 <body>
-    <div class="container" style="max-width: 800px;">
+    <div class="page-shell report-shell">
+        <header class="dashboard-header">
+            <div>
+                <p class="dashboard-kicker">Annual Wrap</p>
+                <h1 id="annual-title">年度报告</h1>
+            </div>
+            <a class="dashboard-action" href="/">返回主页</a>
+        </header>
         <div class="card">
-            <h1 style="font-size: 2em; margin-bottom: 4px;">2026 年度报告</h1>
             <p style="color: var(--text-secondary);" id="annual-subtitle">加载中...</p>
         </div>
 
@@ -54,7 +60,6 @@
             </div>
         </div>
 
-        <a href="/" style="display: block; text-align: center; margin-top: 16px; font-size: 0.9em; color: var(--text-secondary);">← 返回主页</a>
     </div>
 
     <script>
@@ -64,6 +69,9 @@
             const resp = await fetch('/api/stats/usage?period=year');
             const data = await resp.json();
             const apps = data.apps || [];
+            const summary = data.summary || {};
+            const year = summary.year || new Date().getFullYear();
+            document.getElementById('annual-title').textContent = year + ' 年度报告';
 
             if (apps.length === 0) {
                 document.getElementById('annual-subtitle').textContent = '暂无年度数据';
@@ -73,7 +81,7 @@
 
             const total = apps.reduce((s, a) => s + a.seconds, 0);
             const totalH = Math.floor(total / 3600);
-            const activeDays = Math.max(1, Math.ceil(total / 3600 / 8));
+            const activeDays = summary.active_days || 0;
             const topApp = apps[0].app_name;
             const appsCount = apps.length;
 

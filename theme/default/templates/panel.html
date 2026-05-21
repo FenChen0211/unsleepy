@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{{ c.page.name }} - 管理面板</title>
     <meta name="description" content="管理面板" />
+    <meta name="theme-color" content="#5470c6" />
     <link rel="icon" href="{{ c.page.favicon }}" />
     <link rel="stylesheet" href="{{ url_for('static', filename='main.css') }}?v=4" />
     <link rel="stylesheet" href="{{ url_for('static', filename='panel.css') }}?v=4" />
@@ -23,6 +24,7 @@
                 <li class="active" data-tab="overview">系统概览</li>
                 <li data-tab="toggles">展示开关</li>
                 <li data-tab="config">用户配置</li>
+                <li data-tab="status-texts">状态文案</li>
                 <li data-tab="devices">设备管理</li>
                 <li data-tab="categories">应用分类</li>
                 <li data-tab="logs">使用记录</li>
@@ -98,6 +100,19 @@
                     </div>
                     <button class="btn btn-primary" id="config-save-btn" style="margin-top: 16px;">保存配置</button>
                     <span id="config-save-msg" style="margin-left: 10px; font-size: 0.85em; color: var(--text-muted);"></span>
+                </div>
+            </section>
+
+            <!-- 状态文案 -->
+            <section id="tab-status-texts" class="panel-tab">
+                <div class="panel-card">
+                    <h2>状态文案</h2>
+                    <p style="color: var(--text-secondary); font-size: 0.9em; margin-top: 0;">自定义前台状态卡片的名称和描述，适合写成你的专属 QQ 状态</p>
+                    <div class="status-text-list" id="status-text-list">
+                        <div class="loading-text">加载中...</div>
+                    </div>
+                    <button class="btn btn-primary" id="status-text-save-btn" style="margin-top: 16px;">保存文案</button>
+                    <span id="status-text-save-msg" style="margin-left: 10px; font-size: 0.85em; color: var(--text-muted);"></span>
                 </div>
             </section>
 
@@ -210,6 +225,6 @@
         </main>
     </div>
 
-    <script src="{{ url_for('static', filename='panel.js') }}"></script>
+    <script src="{{ url_for('static', filename='panel.js') }}?v=5"></script>
 </body>
 </html>

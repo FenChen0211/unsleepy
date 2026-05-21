@@ -16,7 +16,7 @@ from requests import post
 
 # --- config start
 SERVER = 'https://sleepy.example.com'  # 服务器地址, 末尾不带 /
-SECRET = 'this_is_a_strong_key'  # 密钥
+SECRET = 'YOUR_SECRET_HERE'  # 密钥
 DEVICE_ID = 'device-1'  # 设备 id, 唯一
 DEVICE_SHOW_NAME = 'MyDevice1'  # 设备前台显示名称
 CHECK_INTERVAL = 10  # 监测间隔 (秒)

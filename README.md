@@ -1,117 +1,165 @@
-# sleepy
+# Sleepy Board
 
-> 欢迎来到 Sleepy Project 的主仓库!
+> 基于 [sleepy-project/sleepy](https://github.com/sleepy-project/sleepy) 二次开发。
+> 感谢原项目作者与贡献者。当前仓库保留原项目的 MIT License。
 
-一个用于 ~~*视奸*~~ 查看个人在线状态 (以及正在使用软件) 的 Flask 应用，让他人能知道你不在而不是故意吊他/她
+unsleepy 是一个用于 ~~视奸~~ 查看个人在线状态，并**分析你的时间都去哪儿了**的 Flask 应用。既然原项目 sleepy 负责睡着，unsleepy 就负责醒来后的时间追踪。基于 sleepy 二次开发，增加使用统计、应用分类、热力图、年度报告与可选 LLM 分析。
 
-[**功能**](#功能) / [**演示**](#preview) / [**部署**](#部署--更新) / [**服务端配置**](#服务器配置) / [**使用**](#使用) / [**Client**](#client) / [**API**](#api) / [**关于**](#关于)
 
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/sleepy-project/sleepy)
+适合用来搭一个私人状态页，或者当作一个轻量的个人时间流记录工具。
 
 ## 功能
 
-- [x] 自行设置在线状态 *(活着 / 似了 等, 也可 **[自定义](./setting/README.md#status_listjson)** 状态列表)*
-- [x] 实时更新设备使用状态 *(包括 是否正在使用 / 打开的应用名, 通过 **[client](./client/README.md)** 主动推送)*
-- [x] 美观的展示页面 [见 [Preview](#preview)]
-- [x] 开放的 Query / Metrics [接口](./doc/api.md), 方便统计
-- [x] 支持 HTTPS (需要自行配置 SSL 证书)
+- **在线状态页**：展示当前手动状态、设备状态、电量、媒体信息等。
+- **后台管理面板**：切换状态、管理设备、控制前台卡片、配置个人信息。
+- **自定义状态文案**：在后台把状态改成更像 QQ 状态的自定义名称和描述。
+- **使用统计**：按今日、本周、本月、本年查看应用使用时长。
+- **应用分类**：通过关键词规则把应用自动归到开发、娱乐、工作等分类。
+- **热力图与年度报告**：用日历热力图和年度汇总查看长期使用习惯。
+- **专注模式**：内置简易番茄钟，记录专注会话。
+- **LLM 分析**：可选接入 OpenAI 兼容接口，对使用数据生成简短分析。
+- **PWA 支持**：可安装到桌面或手机主屏，支持离线缓存基础资源。
+- **多客户端上报**：包含 Windows、Linux、油猴、AutoX.js、Magisk 等示例客户端。
 
-> [!TIP]
-> 如有 Bug / 建议, 可发 issue (**[Bug][link-issue-bug]** / **[Feature][link-issue-feature]**) 或选择下面的联系方式 *(注明来意)*.
+## 快速开始
 
-## 文档（Beta）
+### 环境要求
 
-https://sleepy.wss.moe
+- Python 3.10+
+- 推荐使用 [uv](https://github.com/astral-sh/uv) 管理依赖
 
-### Working...
+### 本地运行
 
-我们正在使用 FastAPI 重构此项目, 请关注以下社交平台消息:
+```bash
+git clone https://github.com/your-name/sleepy-board.git
+cd sleepy-board
 
-- [Discord][link-dc]
-- [QQ][link-qq]
-- [Telegram][link-tg]
+uv sync
+uv run python main.py
+```
 
-预计将在 1-2 个月内完成 *(希望吧)*
+默认监听 `http://localhost:9010`。
 
-如仍需使用此分支, 请仔细阅读本仓库的文档, 或找上面的 DeepWiki Ask.
+如果不用 uv，也可以使用 pip：
 
-> [!TIP]
-> 以及 V4 API (即不带 `/api` 前缀的 API) 兼容**默认启用**, **文档: [`plugins/v4_compatible/README.md`](./plugins/v4_compatible/README.md)**
+```bash
+pip install -r requirements.txt
+python main.py
+```
 
-### Preview
+### Docker 运行
 
-演示站: [sleepy.wyf9.top](https://sleepy.wyf9.top)
+```bash
+docker compose up -d --build
+```
 
-**开放预览站**: [sleepy-preview.wyf9.top](https://sleepy-preview.wyf9.top)
+默认映射端口为 `9010:9010`，数据目录挂载到 `./data`。
 
-<details>
+## 配置
 
-<summary>展开更多</summary>
+服务端配置默认从 `data/` 目录读取，支持：
 
-**HuggingFace** 部署预览: [wyf9-sleepy.hf.space](https://wyf9-sleepy.hf.space)
+- `data/.env`
+- `data/config.yaml`
+- `data/config.toml`
+- `data/config.json`
+- `sleepy_` 前缀的环境变量
 
-**Vercel** 部署预览: [sleepy-vercel.wyf9.top](https://sleepy-vercel.wyf9.top)
+最重要的是先设置 `main.secret`，它相当于后台密码和客户端上报密钥。
 
-**开发服务器**: [请在 Discord 服务器查看][link-dc]
+使用环境变量示例：
 
-</details>
+```bash
+sleepy_main_secret=change_me
+sleepy_page_name=YourName
+```
 
-## 部署 / 更新
-
-请移步 **[部署教程](./doc/deploy.md)** 或 **[更新教程](./doc/update.md)** *(多图警告)*
+Docker Compose 中也可以直接改 `docker-compose.yml` 里的环境变量。
 
 ## 客户端
 
-搭建完服务端后，你可在 **[`/client`](./client/README.md)** 找到客户端 (用于**手动更新状态**/**自动更新设备打开应用**)
+客户端负责把当前设备状态上报到服务端。Windows 客户端示例：
 
-*目前已有 [Windows](./client/README.md#windevice), [Linux](./client/README.md#linux), [IOS / MacOS](./client/README.md#iosmacos), [Android](./client/README.md#autoxjsscript), [油猴脚本](./client/README.md#browserscript) 等客户端*
+```bash
+cd client
+copy config.example.json config.json
+```
 
-> [!IMPORTANT]
-> 每个客户端的标题可以 **点击跳转最新文件**, 不要使用固定 commit 的链接, 否则无法获取最新文件
+编辑 `client/config.json`：
 
-## API
+```json
+{
+  "server": "http://localhost:9010",
+  "secret": "YOUR_SECRET_HERE",
+  "device_id": "device-1",
+  "device_show_name": "我的电脑",
+  "check_interval": 5,
+  "mouse_idle_time": 15,
+  "media_info_enabled": true
+}
+```
 
-详细的 API 文档见 [doc/api.md](./doc/api.md).
+运行：
 
-<!-- ## 插件系统
+```bash
+python client/win_device.py
+```
 
-(普通用户看这个) **[doc/plugin.md](./doc/plugin.md)**
+其他示例客户端位于 `client/` 目录，可按需要自行调整服务端地址和密钥。
 
-(插件开发看这个) **[doc/plugin-dev/README.md](./doc/plugin-dev/README.md)** -->
+## 常用页面
 
-## Star History
+- `/`：前台状态页
+- `/panel`：后台管理面板
+- `/stats`：使用统计
+- `/stats/annual`：年度报告
+- `/api/status/query`：当前状态 API
+- `/api/device/set`：客户端设备状态上报 API
 
-[![Star History Chart (如无法加载图片可点击查看)](https://api.star-history.com/svg?repos=sleepy-project/sleepy&type=Date)](https://star-history.com/#sleepy-project/sleepy&Date)
+## 项目结构
 
-## 贡献者
+```text
+.
+├── main.py                 # Flask 服务入口
+├── start.py                # 简易守护启动脚本
+├── config.py               # 配置加载
+├── data.py                 # 数据模型与统计逻辑
+├── models.py               # 配置模型
+├── plugin.py               # 插件系统
+├── admin.py                # Flask-Admin 数据视图
+├── public/                 # favicon、manifest、service worker
+├── theme/                  # 前台和后台主题模板
+├── plugins/                # 内置插件
+├── client/                 # 各平台客户端示例
+└── data/                   # 本地配置、数据库、缓存，默认不提交
+```
 
-> [!WARNING]
-> 在提交代码前, 请先查阅 **[贡献准则](https://github.com/sleepy-project/.github/blob/main/CODE_OF_CONDUCT.md)** 和 **[贡献指南](./CONTRIBUTING.md)**
+## 数据与隐私
 
-*因为权限问题, 我把贡献者名单 actions 扬了, 请 **[在此](https://github.com/sleepy-project/sleepy/graphs/contributors)** 查看*
+默认使用 SQLite，数据保存在 `data/` 目录。这个目录可能包含使用记录、配置和密钥，已经在 `.gitignore` 中排除。
 
-## 关于
+发布公开仓库前，请不要提交：
 
-非常感谢 **ZMTO** *(原名 VTEXS)* 的 **「开源项目免费 VPS 计划」** 对项目提供的算力支持！
+- `data/`
+- `client/config.json`
+- 自己打包出来的 `.exe`、`.dmg`、`.zip`
+- 任何真实域名密钥、API Key 或个人数据
 
-> **[Link](https://console.zmto.com/?affid=1566)** *(使用此链接获得 10% 优惠)* <!-- 谁都不许改 affid -->
+## 开发检查
 
----
+```bash
+uv run python -m compileall -q .
+node --check theme/default/static/panel.js
+node --check theme/default/static/modal.js
+```
 
-本项目灵感由 Bilibili UP [@WinMEMZ](https://space.bilibili.com/417031122) 而来: **[site](https://maao.cc/sleepy/)** / **[blog](https://www.maodream.com/archives/192/)** / **[repo: `maoawa/sleepy`](https://github.com/maoawa/sleepy)**, 并~~部分借鉴~~使用了前端代码, 在此十分感谢。
+## License
 
-[`templates/steam-iframe.html`](./templates/steam-iframe.html) 来自 repo **[gamer2810/steam-miniprofile](https://github.com/gamer2810/steam-miniprofile).**
+本项目基于 sleepy-project/sleepy 修改，当前仓库使用 [MIT License](./LICENSE)。
 
----
+如果你继续发布修改版，请保留原项目来源和许可证说明。
 
-对智能家居 / Home Assistant 感兴趣的朋友，一定要看看 WinMEMZ 的 [sleepy 重生版](https://maao.cc/project-sleepy/): **[maoawa/project-sleepy](https://github.com/maoawa/project-sleepy)!**
+## 致谢
 
-感谢 [@1812z](https://github.com/1812z) 的 B 站视频推广~ **([BV1LjB9YjEi3](https://www.bilibili.com/video/BV1LjB9YjEi3))**
-
----
-
-[link-dc]: https://sleepy.wss.moe/dc
-[link-tg]: https://sleepy.wss.moe/tgc
-[link-qq]: https://sleepy.wss.moe/qq
-[link-issue-bug]: https://sleepy.wss.moe/bug
-[link-issue-feature]: https://sleepy.wss.moe/feature
+- [sleepy-project/sleepy](https://github.com/sleepy-project/sleepy)：原项目
+- 原项目作者与贡献者：提供了在线状态页、插件系统和多客户端基础

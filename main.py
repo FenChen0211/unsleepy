@@ -6,13 +6,17 @@
 # region init
 
 # show welcome text
-print(f'''
+_welcome_text = '''
 Welcome to Sleepy Project 2025!
 Give us a Star 🌟 please: https://github.com/sleepy-project/sleepy
 Bug Report: https://sleepy.wss.moe/bug
 Feature Request: https://sleepy.wss.moe/feature
 Security Report: https://sleepy.wss.moe/security
-'''[1:], flush=True)
+'''[1:]
+try:
+    print(_welcome_text, flush=True)
+except UnicodeEncodeError:
+    print(_welcome_text.encode('ascii', 'replace').decode('ascii'), flush=True)
 
 # import modules
 try:
@@ -570,7 +574,7 @@ def query():
     # 获取手动状态
     st: int = d.status_id
     try:
-        stinfo = c.status.status_list[st].model_dump()
+        stinfo = d.get_status(st)[1].model_dump()
     except:
         stinfo = {
             'id': -1,
@@ -697,7 +701,7 @@ def get_status_list():
     - 无需鉴权
     - Method: **GET**
     '''
-    evt = p.trigger_event(pl.StatuslistAccessEvent(c.status.status_list))
+    evt = p.trigger_event(pl.StatuslistAccessEvent(d.get_effective_status_list()))
     if evt.interception:
         return evt.interception
     return {
@@ -900,7 +904,7 @@ def admin_panel():
         else:
             inject += str(i) + '\n'
 
-    return render_template(
+    rendered = render_template(
         'panel.html',
         c=c,
         current_theme=flask.g.theme,
@@ -909,6 +913,10 @@ def admin_panel():
         cards=cards,
         inject=inject
     ) or flask.abort(404)
+    response = flask.make_response(rendered)
+    if flask.request.args.get('secret') == c.main.secret:
+        response.set_cookie('sleepy-secret', c.main.secret, max_age=30 * 24 * 60 * 60, httponly=True, samesite='Lax')
+    return response
 
 
 @app.route('/panel/categories/list')
@@ -959,6 +967,62 @@ def panel_logs_clear():
     _UsageLog.query.delete()
     db.session.commit()
     return {'success': True}
+
+
+@app.route('/panel/status-texts', methods=['GET', 'POST'])
+@u.require_secret()
+def panel_status_texts():
+    '''
+    后台自定义状态文案。
+    - Method: **GET / POST**
+    '''
+    if flask.request.method == 'GET':
+        return {
+            'success': True,
+            'status_list': [i.model_dump() for i in d.get_effective_status_list()],
+            'base_status_list': [i.model_dump() for i in c.status.status_list],
+            'overrides': d.get_status_text_overrides()
+        }
+
+    payload = flask.request.get_json(silent=True) or {}
+    raw_items = payload.get('status_list')
+    if not isinstance(raw_items, list):
+        raise u.APIUnsuccessful(400, 'status_list must be a list')
+
+    allowed_colors = {'awake', 'sleeping', 'error'}
+    overrides: dict[str, dict[str, str]] = {}
+    for item in raw_items:
+        if not isinstance(item, dict):
+            continue
+        try:
+            idx = int(item.get('id'))
+        except (TypeError, ValueError):
+            continue
+        if idx < 0 or idx >= len(c.status.status_list):
+            continue
+
+        base = c.status.status_list[idx]
+        name = str(item.get('name', '')).strip()[:64]
+        desc = str(item.get('desc', '')).strip()[:512]
+        color = str(item.get('color', '')).strip()[:32]
+        if color and color not in allowed_colors:
+            color = base.color
+
+        override: dict[str, str] = {}
+        if name and name != base.name:
+            override['name'] = name
+        if desc and desc != base.desc:
+            override['desc'] = desc
+        if color and color != base.color:
+            override['color'] = color
+        if override:
+            overrides[str(idx)] = override
+
+    d.set_status_text_overrides(overrides)
+    return {
+        'success': True,
+        'status_list': [i.model_dump() for i in d.get_effective_status_list()]
+    }
 
 
 @app.route('/panel/login')
@@ -1045,7 +1109,7 @@ def api_usage_stats():
     if period not in ('today', 'week', 'month', 'year'):
         period = 'today'
     data = d.get_aggregated_usage(period, device_name=device)
-    return {'success': True, 'period': period, 'apps': data}
+    return {'success': True, 'period': period, 'apps': data, 'summary': d.get_usage_summary(period, device_name=device)}
 
 
 @app.route('/api/stats/category')
@@ -1085,6 +1149,7 @@ def api_devices():
 
 @app.route('/api/focus/start', methods=['POST'])
 @cross_origin(c.main.cors_origins)
+@u.require_secret()
 def api_focus_start():
     data = flask.request.get_json(silent=True) or {}
     user_cfg = d.get_user_config()
@@ -1097,6 +1162,7 @@ def api_focus_start():
 
 @app.route('/api/focus/stop', methods=['POST'])
 @cross_origin(c.main.cors_origins)
+@u.require_secret()
 def api_focus_stop():
     result = d.end_focus_session()
     return {'success': True, 'session': result}
@@ -1113,6 +1179,10 @@ def api_focus_status():
 @cross_origin(c.main.cors_origins)
 def api_toggles():
     if flask.request.method == 'POST':
+        auth = u.require_secret()(lambda: None)
+        auth_result = auth()
+        if auth_result is not None:
+            return auth_result
         data = flask.request.get_json(silent=True) or {}
         try:
             from data import _DisplayToggle, db
@@ -1136,7 +1206,7 @@ def api_user_config():
     if flask.request.method == 'POST':
         secret = flask.g.secret
         body = flask.request.get_json(silent=True) or {}
-        if not (body.pop('secret', None) == secret
+        if not secret or not (body.pop('secret', None) == secret
                 or flask.request.args.get('secret') == secret
                 or flask.request.cookies.get('sleepy-secret') == secret):
             return {'success': False, 'message': 'unauthorized'}, 401

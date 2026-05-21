@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ page_title }}</title>
     <meta name="description" content="{{ page_desc }}">
-    <meta name="theme-color" content="#0a0a0a">
+    <meta name="theme-color" content="#5470c6">
     <link rel="icon" href="{{ page_favicon }}">
     <link rel="manifest" href="/manifest.json">
     <link rel="stylesheet" href="{{ url_for('static', filename='main.css') }}?v=4">
@@ -20,7 +20,14 @@
     {% endif %}
 </head>
 <body>
-    <div class="container">
+    <div class="page-shell">
+        <header class="dashboard-header">
+            <div>
+                <p class="dashboard-kicker">Sleepy Status</p>
+                <h1>{{ page_title }}</h1>
+            </div>
+            <a class="dashboard-action" href="/stats/annual">年度报告</a>
+        </header>
         <div class="card-grid" id="card-grid">
             {% for card_name, card_value in cards.items() %}
             <div class="card-tile" data-card="{{ card_name }}">

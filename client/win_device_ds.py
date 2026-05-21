@@ -26,7 +26,7 @@ from pywintypes import error as pywinerror
 
 # 服务端配置
 SERVER_URL = "http://localhost:9010"  # 服务端地址，末尾不带斜杠
-SECRET = "wyf9test"  # 与服务端一致的密钥
+SECRET = "YOUR_SECRET_HERE"  # 与服务端一致的密钥
 
 # 设备配置
 DEVICE_ID = "device-1"  # 设备标识符（唯一）

@@ -6,10 +6,19 @@ data/
 config.yaml
 config.toml
 .env
+client/config.json
 
 # Data
 *.db
 data.json
+
+# Build artifacts / release binaries
+client/Win_Simple/dist/
+client/magisk/aapt
+client/magisk/cache.txt
+*.exe
+*.dmg
+*.zip
 
 # For Local / venv
 *.test.*
@@ -20,6 +29,7 @@ data.json
 # Others
 .vscode/launch.json
 .claude/
+.ui-check/
 任务清单(全部完成后删除).md
 
 

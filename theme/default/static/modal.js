@@ -21,8 +21,11 @@
 
     tiles.forEach(function(tile) {
         tile.addEventListener('click', function(e) {
+            if (window.matchMedia && window.matchMedia('(max-width: 768px)').matches) {
+                return;
+            }
             // Don't open modal if clicking on a link or button inside the card
-            if (e.target.tagName === 'A' || e.target.tagName === 'BUTTON' || e.target.closest('a') || e.target.closest('button')) {
+            if (e.target.tagName === 'A' || e.target.tagName === 'BUTTON' || e.target.closest('a') || e.target.closest('button') || e.target.closest('select') || e.target.closest('input')) {
                 return;
             }
             const name = tile.dataset.card;

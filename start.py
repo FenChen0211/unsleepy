@@ -1,8 +1,8 @@
 #!/usr/bin/python3
 # coding: utf-8
 
-from os import name, path, system
-from sys import argv
+from os import path, system
+from sys import argv, executable
 from time import sleep
 
 SERVER_PATH = 'main.py'  # main.py 相对路径
@@ -16,12 +16,7 @@ print(f'[Start] Server path: {server}')
 while True:
     c += 1
     print(f'[Start] Starting server #{c}')
-    if name == 'nt':
-        # Windows
-        r = system(f'python {server}')
-    else:
-        # not Windows
-        r = system(f'python3 {server}')
+    r = system(f'"{executable}" "{server}"')
     print(f'[Start] #{c} exited with code {r}')
     print(f'[Start] wait {WAIT_TIME}s')
     sleep(WAIT_TIME)

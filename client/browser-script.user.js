@@ -7,7 +7,7 @@
 // @author       wyf9
 // @match        *://*/*
 // @grant        GM_xmlhttpRequest
-// @connect      sleepy.wyf9.top
+// @connect      sleepy.example.com
 // @homepage     https://github.com/sleepy-project/sleepy
 // @source       https://github.com/sleepy-project/sleepy/raw/refs/heads/main/client/browser-script.user.js
 // ==/UserScript==
@@ -16,9 +16,9 @@
     'use strict';
 
     // ===== 参数配置 =====
-    const API_URL = 'https://sleepy.wyf9.top/api/device/set'; // 完整 API 地址（以 /api/device/set 结尾）
-    const SECRET = '绝对猜不出来的密码';                // 你的 secret
-    const ID = '114514';                               // 设备 id
+    const API_URL = 'https://sleepy.example.com/api/device/set'; // 完整 API 地址（以 /api/device/set 结尾）
+    const SECRET = 'YOUR_SECRET_HERE';                 // 你的 secret
+    const ID = 'browser-device';                       // 设备 id
     const SHOW_NAME = '';                              // 设备名称，若为空则使用浏览器名称
     const NO_TITLE = 'url';                            // 页面标题为空时返回的值：'url' 使用完整 URL, 'host' 使用域名, 其他值则直接使用该值
     const BLACKLIST = ['admin', '后台'];               // 黑名单关键词数组（标题或 URL 包含即停止上报，不区分大小写）

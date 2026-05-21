@@ -12,7 +12,14 @@
     <script src="{{ url_for('static', filename='chart.min.js') }}"></script>
 </head>
 <body>
-    <div class="container" style="max-width: 800px;">
+    <div class="page-shell report-shell">
+        <header class="dashboard-header">
+            <div>
+                <p class="dashboard-kicker">Usage Analytics</p>
+                <h1>{{ page_title }}</h1>
+            </div>
+            <a class="dashboard-action" href="/">返回主页</a>
+        </header>
         <div class="card">
             <h2>使用时长</h2>
             <div style="display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin: 12px 0;">
@@ -36,7 +43,6 @@
             <p id="chart-empty" style="color: var(--text-secondary); display: none; text-align: center;">暂无数据</p>
         </div>
 
-        <a href="/" style="display: block; text-align: center; margin-top: 16px; font-size: 0.9em; color: var(--text-secondary);">← 返回主页</a>
     </div>
 
     <script>

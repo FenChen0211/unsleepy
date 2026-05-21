@@ -2,6 +2,13 @@ let statusList = [];
 let currentStatusId = -1;
 let deviceData = {};
 let privateMode = false;
+const panelSecret = new URLSearchParams(window.location.search).get('secret') || localStorage.getItem('sleepy_secret') || '';
+
+function protectedUrl(url) {
+    if (!panelSecret) return url;
+    const joiner = url.indexOf('?') === -1 ? '?' : '&';
+    return url + joiner + 'secret=' + encodeURIComponent(panelSecret);
+}
 
 // ========== Init ==========
 
@@ -27,7 +34,7 @@ function updateOverview() {
         ? statusList[currentStatusId].name : '未知';
     document.getElementById('ov-private').textContent = privateMode ? '已开启' : '已关闭';
     document.getElementById('ov-device-count').textContent = Object.keys(deviceData).length;
-    fetch('/api/export/usage?per_page=1').then(r => r.json()).then(d => {
+    fetch(protectedUrl('/api/export/usage?per_page=1')).then(r => r.json()).then(d => {
         document.getElementById('ov-log-count').textContent = d.total || 0;
     }).catch(() => {});
 }
@@ -62,6 +69,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     document.getElementById('toggles-save-btn').addEventListener('click', saveToggles);
     document.getElementById('config-save-btn').addEventListener('click', saveConfig);
+    document.getElementById('status-text-save-btn').addEventListener('click', saveStatusTexts);
     document.getElementById('cat-add-btn').addEventListener('click', addCategory);
     document.getElementById('logs-refresh-btn').addEventListener('click', loadLogs);
     document.getElementById('logs-clear-btn').addEventListener('click', clearLogs);
@@ -74,6 +82,7 @@ function loadTab(tab) {
         case 'devices': loadDevices(); break;
         case 'toggles': loadToggles(); break;
         case 'config': loadConfig(); break;
+        case 'status-texts': loadStatusTexts(); break;
         case 'categories': loadCategories(); break;
         case 'logs': loadLogs(); break;
     }
@@ -96,9 +105,76 @@ function renderStatusSelector() {
 }
 
 async function setStatus(idx) {
-    const r = await fetch('/api/status/set?status=' + idx);
+    const r = await fetch(protectedUrl('/api/status/set?status=' + idx));
     const d = await r.json();
     if (d.success) { currentStatusId = idx; renderStatusSelector(); updateOverview(); }
+}
+
+// ========== Status Texts ==========
+
+async function loadStatusTexts() {
+    const r = await fetch(protectedUrl('/panel/status-texts'));
+    const d = await r.json();
+    const list = document.getElementById('status-text-list');
+    const statuses = d.status_list || [];
+    if (!statuses.length) {
+        list.innerHTML = '<div class="loading-text">暂无可编辑状态</div>';
+        return;
+    }
+
+    list.innerHTML = statuses.map(function (s) {
+        return '<div class="status-text-editor" data-status-id="' + s.id + '">' +
+            '<div class="status-text-head">' +
+            '<span class="status-dot ' + statusColorClass(s.color) + '"></span>' +
+            '<strong>#' + s.id + '</strong>' +
+            '<select class="status-color form-input" data-field="color">' +
+            statusColorOption('awake', '在线', s.color) +
+            statusColorOption('sleeping', '离线', s.color) +
+            statusColorOption('error', '异常', s.color) +
+            '</select>' +
+            '</div>' +
+            '<label>状态名称</label>' +
+            '<input class="form-input form-input-wide" data-field="name" maxlength="64" value="' + escAttr(s.name || '') + '" />' +
+            '<label>状态描述</label>' +
+            '<textarea class="form-input form-textarea" data-field="desc" maxlength="512">' + esc(s.desc || '') + '</textarea>' +
+            '</div>';
+    }).join('');
+}
+
+function statusColorOption(value, label, current) {
+    return '<option value="' + value + '"' + (current === value ? ' selected' : '') + '>' + label + '</option>';
+}
+
+function statusColorClass(color) {
+    return ['awake', 'sleeping', 'error'].includes(color) ? color : 'awake';
+}
+
+async function saveStatusTexts() {
+    const status_list = [];
+    document.querySelectorAll('.status-text-editor').forEach(function (row) {
+        status_list.push({
+            id: parseInt(row.dataset.statusId),
+            name: row.querySelector('[data-field=name]').value,
+            desc: row.querySelector('[data-field=desc]').value,
+            color: row.querySelector('[data-field=color]').value
+        });
+    });
+
+    const r = await fetch(protectedUrl('/panel/status-texts'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status_list: status_list })
+    });
+    const d = await r.json();
+    const msg = document.getElementById('status-text-save-msg');
+    msg.textContent = d.success ? '已保存' : '保存失败';
+    msg.style.color = d.success ? 'var(--accent)' : 'var(--color-error)';
+    if (d.success) {
+        statusList = d.status_list || statusList;
+        renderStatusSelector();
+        updateOverview();
+    }
+    setTimeout(function () { msg.textContent = ''; }, 2000);
 }
 
 // ========== Devices ==========
@@ -127,25 +203,30 @@ function renderDeviceTable() {
             '<td>' + esc(dev.show_name || id) + '</td>' +
             '<td>' + esc(dev.status || '-') + '</td>' +
             '<td>' + (dev.using ? '<span style="color:#40c463;">使用中</span>' : '<span style="color:var(--text-muted);">空闲</span>') + '</td>' +
-            '<td><button class="btn btn-danger" style="font-size:0.8em;padding:2px 8px;" onclick="panelRemoveDevice(\'' + esc(id) + '\')">删除</button></td>' +
+            '<td><button class="btn btn-danger btn-compact" data-remove-device="' + escAttr(id) + '">删除</button></td>' +
             '</tr>';
     }).join('');
 }
 
-window.panelRemoveDevice = async function (id) {
+document.addEventListener('click', function (e) {
+    const btn = e.target.closest('[data-remove-device]');
+    if (btn) panelRemoveDevice(btn.dataset.removeDevice);
+});
+
+async function panelRemoveDevice(id) {
     if (!confirm('确定删除设备 "' + id + '" 吗？')) return;
-    await fetch('/api/device/remove?id=' + encodeURIComponent(id));
+    await fetch(protectedUrl('/api/device/remove?id=' + encodeURIComponent(id)));
     loadDevices();
-};
+}
 
 async function clearDevices() {
     if (!confirm('确定清除所有设备？此操作不可撤销！')) return;
-    await fetch('/api/device/clear');
+    await fetch(protectedUrl('/api/device/clear'));
     loadDevices();
 }
 
 async function togglePrivateMode(on) {
-    await fetch('/api/device/private?private=' + (on ? '1' : '0'));
+    await fetch(protectedUrl('/api/device/private?private=' + (on ? '1' : '0')));
     loadDevices();
 }
 
@@ -182,7 +263,7 @@ async function saveToggles() {
     document.querySelectorAll('#toggle-list input[type=checkbox]').forEach(function (cb) {
         payload[cb.dataset.key] = cb.checked;
     });
-    const r = await fetch('/api/settings/toggles', {
+    const r = await fetch(protectedUrl('/api/settings/toggles'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -205,7 +286,7 @@ async function loadConfig() {
     // 获取完整 api_key（需要认证）
     let apiKey = c.llm_api_key || '';
     try {
-        const ar = await fetch('/api/settings/user_config/admin');
+        const ar = await fetch(protectedUrl('/api/settings/user_config/admin'));
         const ad = await ar.json();
         if (ad.config && ad.config.api_key) apiKey = ad.config.api_key;
     } catch (e) {}
@@ -280,7 +361,7 @@ async function loadConfig() {
 
     let html = '';
     sections.forEach(function(sec) {
-        html += '<h3 style="font-family:var(--font-mono);font-size:0.75rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.1em;margin:16px 0 8px;padding-bottom:4px;border-bottom:1px solid var(--border);">// ' + sec.title + '</h3>';
+        html += '<h3 class="config-section-title">// ' + sec.title + '</h3>';
         sec.items.forEach(function(item) {
             if (item.type === 'bool') {
                 html += '<div class="config-row">' +
@@ -292,25 +373,25 @@ async function loadConfig() {
                     '<span class="config-desc">' + item.desc + '</span>' +
                     '</div>';
             } else if (item.type === 'textarea') {
-                html += '<div class="config-row" style="flex-direction:column;align-items:flex-start;">' +
+                html += '<div class="config-row config-row-stack">' +
                     '<label>' + item.name + '</label>' +
-                    '<textarea data-key="' + item.key + '" placeholder="' + (item.placeholder || '') + '" maxlength="' + (item.max || 1024) + '" style="width:100%;padding:6px 8px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg-elevated);color:var(--text-primary);font-family:inherit;font-size:0.85em;resize:vertical;min-height:60px;">' + (item.val || '') + '</textarea>' +
+                    '<textarea class="form-input form-textarea" data-key="' + item.key + '" placeholder="' + escAttr(item.placeholder || '') + '" maxlength="' + (item.max || 1024) + '">' + esc(item.val || '') + '</textarea>' +
                     '<span class="config-desc">' + item.desc + '</span>' +
                     '</div>';
             } else if (item.type === 'password') {
                 html += '<div class="config-row">' +
                     '<label>' + item.name + '</label>' +
-                    '<input type="password" data-key="' + item.key + '" value="' + (item.val || '') + '" placeholder="' + (item.placeholder || '') + '" style="width:200px;padding:4px 8px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg-elevated);color:var(--text-primary);font-family:inherit;" />' +
+                    '<input class="form-input form-input-wide" type="password" data-key="' + item.key + '" value="' + escAttr(item.val || '') + '" placeholder="' + escAttr(item.placeholder || '') + '" />' +
                     '<span class="config-desc">' + item.desc + '</span>' +
                     '</div>';
             } else {
                 html += '<div class="config-row">' +
                     '<label>' + item.name + '</label>' +
-                    '<input type="' + (item.type || 'text') + '" data-key="' + item.key + '" value="' + (item.val || '') + '" placeholder="' + (item.placeholder || '') + '"' +
+                    '<input class="form-input' + (item.type === 'text' ? ' form-input-wide' : '') + '" type="' + (item.type || 'text') + '" data-key="' + item.key + '" value="' + escAttr(item.val || '') + '" placeholder="' + escAttr(item.placeholder || '') + '"' +
                     (item.min !== undefined ? ' min="' + item.min + '"' : '') +
                     (item.max !== undefined && item.type === 'number' ? ' max="' + item.max + '"' : '') +
-                    (item.type === 'text' ? ' maxlength="' + (item.max || 512) + '" style="width:300px;"' : '') +
-                    ' style="padding:4px 8px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg-elevated);color:var(--text-primary);font-family:inherit;" />' +
+                    (item.type === 'text' ? ' maxlength="' + (item.max || 512) + '"' : '') +
+                    ' />' +
                     '<span class="config-desc">' + item.desc + '</span>' +
                     '</div>';
             }
@@ -333,7 +414,7 @@ async function saveConfig() {
     document.querySelectorAll('#config-list input[type=checkbox]').forEach(function (cb) {
         payload[cb.dataset.key] = cb.checked;
     });
-    const r = await fetch('/api/settings/user_config', {
+    const r = await fetch(protectedUrl('/api/settings/user_config'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -353,7 +434,7 @@ async function saveConfig() {
 
 async function loadCategories() {
     try {
-        const r = await fetch('/panel/categories/list');
+        const r = await fetch(protectedUrl('/panel/categories/list'));
         const d = await r.json();
         renderCatTable(d.categories || []);
     } catch (e) {
@@ -379,7 +460,7 @@ function renderCatTable(cats) {
 
 window.panelDeleteCat = async function (id) {
     if (!confirm('确定删除此分类规则？')) return;
-    await fetch('/panel/category/delete?id=' + id, { method: 'POST' });
+    await fetch(protectedUrl('/panel/category/delete?id=' + id), { method: 'POST' });
     loadCategories();
 };
 
@@ -388,7 +469,7 @@ async function addCategory() {
     const label = document.getElementById('cat-label').value.trim();
     const color = document.getElementById('cat-color').value;
     if (!pattern || !label) { alert('请填写关键词和分类标签'); return; }
-    const r = await fetch('/panel/category/add', {
+    const r = await fetch(protectedUrl('/panel/category/add'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ pattern: pattern, category: label, color: color })
@@ -408,7 +489,7 @@ async function addCategory() {
 // ========== Usage Logs ==========
 
 async function loadLogs() {
-    const r = await fetch('/api/export/usage?per_page=50');
+    const r = await fetch(protectedUrl('/api/export/usage?per_page=50'));
     const d = await r.json();
     const records = d.records || [];
     document.getElementById('logs-count').textContent = '共 ' + d.total + ' 条记录';
@@ -435,7 +516,7 @@ async function loadLogs() {
 
 async function clearLogs() {
     if (!confirm('确定清除所有使用记录？此操作不可撤销！')) return;
-    await fetch('/panel/logs/clear', { method: 'POST' });
+    await fetch(protectedUrl('/panel/logs/clear'), { method: 'POST' });
     loadLogs();
 }
 
@@ -465,4 +546,8 @@ async function fetchMetrics() {
 function esc(s) {
     if (!s) return '';
     return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function escAttr(s) {
+    return esc(s).replace(/'/g, '&#39;');
 }

@@ -1,6 +1,6 @@
-/* ===== Admin Panel — Glass Dark ===== */
+/* ===== Admin Panel ===== */
 body.admin-panel {
-  background-color: #050505;
+  background-color: var(--bg-surface);
   background-position: center center;
   background-size: cover;
   background-attachment: fixed;
@@ -136,6 +136,7 @@ body.admin-panel {
   margin-bottom: 20px;
   transition: border-color var(--transition), box-shadow var(--transition);
   box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.04), var(--shadow-md);
+  overflow-x: auto;
 }
 
 .panel-card:hover {
@@ -215,6 +216,57 @@ body.admin-panel {
   font-weight: 500;
 }
 
+.status-text-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.status-text-editor {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.status-text-editor label {
+  color: var(--text-muted);
+  font-size: 0.78em;
+}
+
+.status-text-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.status-color {
+  margin-left: auto;
+}
+
+.status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.04);
+}
+
+.status-dot.awake {
+  background: var(--accent);
+}
+
+.status-dot.sleeping {
+  background: var(--text-muted);
+}
+
+.status-dot.error {
+  background: var(--color-error);
+}
+
 /* ===== Toggle List ===== */
 .toggle-list {
   display: grid;
@@ -232,6 +284,7 @@ body.admin-panel {
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   transition: border-color var(--transition);
+  gap: 12px;
 }
 
 .toggle-row:hover {
@@ -261,6 +314,22 @@ body.admin-panel {
   flex-wrap: wrap;
 }
 
+.config-row-stack {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.config-section-title {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin: 18px 0 8px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--border);
+}
+
 .config-row:last-child {
   border-bottom: none;
 }
@@ -270,6 +339,45 @@ body.admin-panel {
   font-size: 0.9em;
   color: var(--text-primary);
   font-weight: 500;
+}
+
+.config-row input,
+.config-row textarea,
+.cat-form input {
+  box-sizing: border-box;
+  max-width: 100%;
+}
+
+.form-input {
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  font-family: inherit;
+}
+
+.form-input-wide {
+  width: min(100%, 360px);
+}
+
+.form-textarea {
+  width: 100%;
+  min-height: 72px;
+  resize: vertical;
+}
+
+#config-list input[type='text'],
+#config-list input[type='password'] {
+  width: min(100%, 360px) !important;
+}
+
+#config-list input[type='number'] {
+  width: 120px;
+}
+
+#config-list textarea {
+  width: 100% !important;
 }
 
 .config-desc {
@@ -312,6 +420,7 @@ body.admin-panel {
 /* ===== Device & Category Tables ===== */
 .device-list {
   width: 100%;
+  min-width: 640px;
   border-collapse: collapse;
   font-size: 0.88em;
 }
@@ -360,6 +469,17 @@ body.admin-panel {
   flex-wrap: wrap;
 }
 
+.panel-actions .btn,
+.cat-form .btn {
+  flex: 0 0 auto;
+}
+
+.btn-compact {
+  min-height: 28px;
+  padding: 2px 8px;
+  font-size: 0.8em;
+}
+
 /* ===== Progress Bar ===== */
 .progress-bar {
   width: 100%;
@@ -401,18 +521,109 @@ body.admin-panel {
 
 /* ===== Responsive ===== */
 @media (max-width: 768px) {
+  .panel-layout {
+    display: block;
+  }
+
   .panel-sidebar {
-    width: 200px;
-    min-width: 200px;
+    width: 100%;
+    min-width: 0;
+    height: auto;
+    position: sticky;
+    bottom: auto;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .sidebar-header {
+    padding: 14px 16px 8px;
+  }
+
+  .sidebar-nav {
+    display: flex;
+    overflow-x: auto;
+    gap: 6px;
+    padding: 8px 10px 12px;
+    margin: 0;
+    scrollbar-width: thin;
+  }
+
+  .sidebar-nav li {
+    flex: 0 0 auto;
+    margin: 0;
+    border-left: none;
+    border-bottom: 2px solid transparent;
+    padding: 8px 10px;
+  }
+
+  .sidebar-nav li.active {
+    border-left-color: transparent;
+    border-bottom-color: var(--accent);
+  }
+
+  .sidebar-footer {
+    display: none;
   }
 
   .panel-main {
-    margin-left: 200px;
-    padding: 20px;
-    max-width: calc(100% - 200px);
+    margin-left: 0;
+    padding: 16px 12px 24px;
+    max-width: 100%;
   }
 
   .overview-grid {
     grid-template-columns: repeat(2, 1fr);
+  }
+
+  .toggle-list {
+    grid-template-columns: 1fr;
+  }
+
+  .toggle-row {
+    align-items: flex-start;
+  }
+
+  .config-row {
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .config-row label,
+  .config-desc {
+    min-width: 100%;
+  }
+
+  .cat-form {
+    align-items: stretch;
+  }
+
+  .cat-form > div,
+  .cat-form button {
+    width: 100%;
+  }
+
+  .cat-form input {
+    width: 100% !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .overview-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .panel-card {
+    padding: 16px;
+  }
+
+  .panel-actions {
+    align-items: stretch;
+  }
+
+  .panel-actions .btn,
+  .panel-actions a.btn {
+    width: 100%;
+    box-sizing: border-box;
+    text-align: center;
   }
 }

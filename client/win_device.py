@@ -44,7 +44,7 @@ def load_config():
 cfg = load_config()
 
 SERVER: str = cfg.get('server', 'http://localhost:9010')
-SECRET: str = cfg.get('secret', 'wyf9test')
+SECRET: str = cfg.get('secret', 'YOUR_SECRET_HERE')
 DEVICE_ID: str = cfg.get('device_id', 'device-1')
 DEVICE_SHOW_NAME: str = cfg.get('device_show_name', 'MyDevice1')
 CHECK_INTERVAL: int = cfg.get('check_interval', 5)

@@ -17,7 +17,7 @@ import signal
 
 # --- config start
 SERVER = 'http://localhost:9010'  # 服务地址, 末尾还是不带 /
-SECRET = 'wyf9test'  # 密钥
+SECRET = 'YOUR_SECRET_HERE'  # 密钥
 DEVICE_ID = 'device-1'  # 设备标识符
 DEVICE_SHOW_NAME = 'MyDevice1'  # 前台显示名称
 CHECK_INTERVAL = 2  # 检查间隔，以秒为单位

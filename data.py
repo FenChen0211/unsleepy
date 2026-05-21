@@ -313,7 +313,7 @@ class Data:
         用 id 获取状态
         '''
         try:
-            return True, self._c.status.status_list[status_id]
+            return True, self.get_effective_status_list()[status_id]
         except IndexError:
             return False, _StatusItemModel(
                 id=self.status_id,
@@ -345,6 +345,57 @@ class Data:
         '''
         status = self.status
         return status[0], to_primitive(self.status[1])  # type: ignore
+
+    def get_status_text_overrides(self) -> dict[str, dict[str, str]]:
+        '''
+        获取后台保存的状态文案覆盖。
+        '''
+        try:
+            with self._app.app_context():
+                row = _PluginData.query.get('status_text_overrides')
+                if not row or not isinstance(row.data, dict):
+                    return {}
+                return row.data
+        except SQLAlchemyError as e:
+            self._throw(e)
+
+    def set_status_text_overrides(self, overrides: dict[str, dict[str, str]]):
+        '''
+        保存后台状态文案覆盖。
+        '''
+        try:
+            with self._app.app_context():
+                row = _PluginData.query.get('status_text_overrides')
+                if not row:
+                    row = _PluginData(id='status_text_overrides', data={})
+                    db.session.add(row)
+                row.data = overrides
+                db.session.commit()
+        except SQLAlchemyError as e:
+            self._throw(e)
+
+    def get_effective_status_list(self) -> list[_StatusItemModel]:
+        '''
+        获取应用后台文案覆盖后的状态列表。
+        '''
+        overrides = self.get_status_text_overrides()
+        status_list: list[_StatusItemModel] = []
+        for index, item in enumerate(self._c.status.status_list):
+            status = item.model_copy(deep=True)
+            status.id = index
+            override = overrides.get(str(index), {})
+            if isinstance(override, dict):
+                name = str(override.get('name', '')).strip()
+                desc = str(override.get('desc', '')).strip()
+                color = str(override.get('color', '')).strip()
+                if name:
+                    status.name = name
+                if desc:
+                    status.desc = desc
+                if color:
+                    status.color = color
+            status_list.append(status)
+        return status_list
 
     @property
     def private_mode(self) -> bool:
@@ -709,6 +760,8 @@ class Data:
                 ).order_by(_UsageLog.device_name, _UsageLog.timestamp).all()
 
                 if not logs:
+                    _AggregatedUsage.query.filter_by(period=period).delete()
+                    db.session.commit()
                     return
 
                 categories: list[_AppCategory] = _AppCategory.query.all()
@@ -771,6 +824,37 @@ class Data:
                     'seconds': r.total_seconds,
                     'computed_at': r.computed_at.isoformat() if r.computed_at else None
                 } for r in rows]
+        except SQLAlchemyError as e:
+            self._throw(e)
+
+    def get_usage_summary(self, period: str, device_name: str = None) -> dict[str, Any]:
+        try:
+            with self._app.app_context():
+                apps = self.get_aggregated_usage(period, device_name=device_name)
+                total_seconds = sum(int(a.get('seconds') or 0) for a in apps)
+                start, end = self._get_period_range(period)
+                query = _UsageLog.query.filter(
+                    _UsageLog.timestamp >= start,
+                    _UsageLog.timestamp <= end
+                )
+                if device_name:
+                    query = query.filter_by(device_name=device_name)
+                tz = pytz.timezone(self._c.main.timezone)
+                active_days = set()
+                for log in query.all():
+                    if log.duration and log.duration > 0:
+                        ts = log.timestamp
+                        if ts.tzinfo is None:
+                            ts = ts.replace(tzinfo=dt_timezone.utc)
+                        active_days.add(ts.astimezone(tz).strftime('%Y-%m-%d'))
+                top_app = apps[0]['app_name'] if apps else ''
+                return {
+                    'total_seconds': total_seconds,
+                    'active_days': len(active_days),
+                    'app_count': len(apps),
+                    'top_app': top_app,
+                    'year': datetime.now(tz).year
+                }
         except SQLAlchemyError as e:
             self._throw(e)
 
@@ -1147,7 +1231,7 @@ class Data:
                         ret = f.read()
                     self._cache[cache_key] = (now, ret)
                     return BytesIO(ret)
-        except FileNotFoundError or IsADirectoryError:
+        except (FileNotFoundError, IsADirectoryError):
             # not found / isn't file -> none
             return None
 

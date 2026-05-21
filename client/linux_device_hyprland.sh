@@ -6,9 +6,9 @@
 
 # --- config start
 URL="http://10.0.0.123:9010/api/device/set" # API 地址, 以 /api/device/set 结尾
-SECRET="114514" # 密钥
+SECRET="YOUR_SECRET_HERE" # 密钥
 DEVICE_ID="desktop" # 设备 id, 唯一
-DEVICE_SHOW_NAME="祈歆的电脑" # 设备显示名称
+DEVICE_SHOW_NAME="My Linux Desktop" # 设备显示名称
 # --- config end
 
 LASTWINDOW="inoryxin" # 这个变量是让电脑第一次开机进桌面不进行任何操作是变为未使用状态时

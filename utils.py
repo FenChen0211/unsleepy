@@ -95,30 +95,35 @@ def require_secret(redirect_to: str | None = None):
     def decorator(view_func):
         @wraps(view_func)
         def wrapper(*args, **kwargs):
+            expected_secret = flask.g.get('secret')
+            if not expected_secret:
+                l.warning('[Auth] Reject request because main.secret is empty')
+                raise APIUnsuccessful(401, 'Secret is not configured')
+
             # 1. body
             body: dict = flask.request.get_json(silent=True) or {}
-            if body and body.get('secret') == flask.g.secret:
+            if body and body.get('secret') == expected_secret:
                 l.debug('[Auth] Verify secret Success from Body')
                 return view_func(*args, **kwargs)
 
             # 2. param
-            elif flask.request.args.get('secret') == flask.g.secret:
+            elif flask.request.args.get('secret') == expected_secret:
                 l.debug('[Auth] Verify secret Success from Param')
                 return view_func(*args, **kwargs)
 
             # 3. header (Sleepy-Secret)
-            elif flask.request.headers.get('Sleepy-Secret') == flask.g.secret:
+            elif flask.request.headers.get('Sleepy-Secret') == expected_secret:
                 l.debug('[Auth] Verify secret Success from Header (Sleepy-Secret)')
                 return view_func(*args, **kwargs)
 
             # 4. header (Authorization)
             auth_header = flask.request.headers.get('Authorization', '')
-            if auth_header.startswith('Bearer ') and auth_header[7:] == flask.g.secret:
+            if auth_header.startswith('Bearer ') and auth_header[7:] == expected_secret:
                 l.debug('[Auth] Verify secret Success from Header (Authorization)')
                 return view_func(*args, **kwargs)
 
             # 5. cookie (sleepy-secret)
-            elif flask.request.cookies.get('sleepy-secret') == flask.g.secret:
+            elif flask.request.cookies.get('sleepy-secret') == expected_secret:
                 l.debug('[Auth] Verify secret Success from Cookie (sleepy-secret)')
                 return view_func(*args, **kwargs)
 

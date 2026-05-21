@@ -13,7 +13,7 @@ global server
 
 # --- config start
 # 密钥
-SECRET = 'YourSecretCannotGuess'
+SECRET = 'YOUR_SECRET_HERE'
 # 服务地址, 末尾不加 `/`
 SERVER = 'https://example.com'
 # 请求重试次数

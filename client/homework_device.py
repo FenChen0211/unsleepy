@@ -5,7 +5,7 @@ from time import sleep
 
 # --- config start
 SERVER = 'https://sleepy.example.com'  # 部署地址，末尾不带 `/`
-SECRET = '11111111-4444-5555-1111-444444444444'
+SECRET = 'YOUR_SECRET_HERE'
 PROXY: str = ''  # 代理地址 (<http/socks5>://host:port), 设置为空字符串禁用
 # --- config end
 

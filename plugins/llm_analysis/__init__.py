@@ -2,6 +2,7 @@
 
 from logging import getLogger
 import json
+from types import SimpleNamespace
 from urllib.request import Request, urlopen
 
 import plugin as pl
@@ -14,14 +15,29 @@ p = pl.Plugin(
     require_version_max=(6, 0, 0),
 )
 
-# 始终注册卡片和路由，启用检查在请求时进行
-
-
 def _get_uc():
     from data import _UserConfig
     import flask
     with flask.current_app.app_context():
-        return _UserConfig.query.first()
+        uc = _UserConfig.query.first()
+    if uc and uc.llm_enabled and uc.llm_api_key:
+        return uc
+
+    cfg = p.config or {}
+    api_key = cfg.get('api_key') or cfg.get('llm_api_key') or ''
+    if not api_key or cfg.get('enabled', True) is False:
+        return uc
+
+    return SimpleNamespace(
+        llm_enabled=True,
+        llm_api_key=api_key,
+        llm_base_url=cfg.get('base_url') or cfg.get('llm_base_url') or 'https://api.openai.com/v1',
+        llm_model=cfg.get('model') or cfg.get('llm_model') or 'gpt-3.5-turbo',
+        llm_system_prompt=cfg.get('system_prompt') or cfg.get('llm_system_prompt') or '',
+        llm_cache_minutes=int(cfg.get('cache_minutes') or cfg.get('llm_cache_minutes') or 60),
+        llm_max_analysis_days=int(cfg.get('max_analysis_days') or cfg.get('llm_max_analysis_days') or 14),
+        llm_rate_limit_minutes=int(cfg.get('rate_limit_minutes') or cfg.get('llm_rate_limit_minutes') or 0)
+    )
 
 
 @p.index_card('llm-insight')

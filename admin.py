@@ -11,6 +11,8 @@ class _SecureMixin:
     _expected_secret: str = ''
 
     def is_accessible(self):
+        if not self._expected_secret:
+            return False
         return request.cookies.get('sleepy-secret') == self._expected_secret
 
     def inaccessible_callback(self, name, **kwargs):
@@ -142,7 +144,7 @@ def init_admin(app, config: ConfigModel):
 
     admin_ep = '/admin'
 
-    for view_cls in (SleepyAdminIndexView, UsageLogView, DeviceStatusView, MainDataView, MetricsDataView, PluginDataView, AppCategoryView, DisplayToggleView, UserConfigView):
+    for view_cls in (SleepyAdminIndexView, UsageLogView, DeviceStatusView, MainDataView, MetricsDataView, PluginDataView, AppCategoryView, DisplayToggleView, UserConfigView, FocusSessionView):
         view_cls._expected_secret = config.main.secret
 
     admin = Admin(

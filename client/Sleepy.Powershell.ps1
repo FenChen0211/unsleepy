@@ -3,8 +3,8 @@
 # Author: NT_AUTHORITY
 
 # CONFIGURATION
-$SERVER = "http://localhost:9010" # Your sever address, e.g., https://sleepy.wyf9.top don't use / at the end!
-$SECRET = "Your_Secret_Password" # Don't leak this!
+$SERVER = "http://localhost:9010" # Your server address, e.g., https://sleepy.example.com don't use / at the end!
+$SECRET = "YOUR_SECRET_HERE" # Don't leak this!
 $DEVICE_ID = "your_device_id" # Your device ID, don't contain sensitive information, like password, etc.
 $DEVICE_SHOW_NAME = "Your Device Display Name" # Displays on the webpage, can be anything you want. e.g., "My PC", "My Laptop", etc.
 $CHECK_INTERVAL = 2 # Check interval in seconds
