@@ -144,10 +144,20 @@ class _UserConfig(db.Model):
     '''
     __tablename__ = 'user_config'
     id: Mapped[int] = mapped_column(Integer, primary_key=True, default=0)
+    page_background_url: Mapped[str] = mapped_column(String(LIMIT), default='')
     focus_default_minutes: Mapped[int] = mapped_column(Integer, default=25)
+    focus_rest_minutes: Mapped[int] = mapped_column(Integer, default=5)
     heatmap_default_days: Mapped[int] = mapped_column(Integer, default=90)
     browser_normalize: Mapped[bool] = mapped_column(Boolean, default=True)
+    log_retention_days: Mapped[int] = mapped_column(Integer, default=0)
+    llm_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    llm_api_key: Mapped[str] = mapped_column(String(LIMIT), default='')
+    llm_base_url: Mapped[str] = mapped_column(String(LIMIT), default='https://api.openai.com/v1')
+    llm_model: Mapped[str] = mapped_column(String(LIMIT), default='gpt-3.5-turbo')
+    llm_system_prompt: Mapped[str] = mapped_column(String(1024), default='你是一个使用数据分析助手。根据用户提供的使用统计数据，给出简短、有洞察力的分析（不超过150字，不使用 markdown 格式）。')
+    llm_cache_minutes: Mapped[int] = mapped_column(Integer, default=60)
     llm_max_analysis_days: Mapped[int] = mapped_column(Integer, default=14)
+    llm_rate_limit_minutes: Mapped[int] = mapped_column(Integer, default=0)
 
 
 class _FocusSession(db.Model):
@@ -254,6 +264,13 @@ class Data:
             self.compute_all_aggregations,
             IntervalTrigger(minutes=5),
             id='aggregate_all',
+            replace_existing=True
+        )
+
+        self._scheduler.add_job(
+            self._clean_old_logs,
+            CronTrigger(hour=3, minute=0),
+            id='clean_old_logs',
             replace_existing=True
         )
 
@@ -581,17 +598,49 @@ class Data:
                 c = _UserConfig.query.first()
                 if not c:
                     return {
+                        'page_background_url': '',
                         'focus_default_minutes': 25,
+                        'focus_rest_minutes': 5,
                         'heatmap_default_days': 90,
                         'browser_normalize': True,
-                        'llm_max_analysis_days': 14
+                        'log_retention_days': 0,
+                        'llm_enabled': False,
+                        'llm_api_key': '',
+                        'llm_base_url': 'https://api.openai.com/v1',
+                        'llm_model': 'gpt-3.5-turbo',
+                        'llm_system_prompt': '',
+                        'llm_cache_minutes': 60,
+                        'llm_max_analysis_days': 14,
+                        'llm_rate_limit_minutes': 0
                     }
+                mask = '********'
+                api_key_display = mask if c.llm_api_key else ''
                 return {
+                    'page_background_url': c.page_background_url or '',
                     'focus_default_minutes': c.focus_default_minutes,
+                    'focus_rest_minutes': c.focus_rest_minutes,
                     'heatmap_default_days': c.heatmap_default_days,
                     'browser_normalize': c.browser_normalize,
-                    'llm_max_analysis_days': c.llm_max_analysis_days
+                    'log_retention_days': c.log_retention_days,
+                    'llm_enabled': c.llm_enabled,
+                    'llm_api_key': api_key_display,
+                    'llm_base_url': c.llm_base_url or '',
+                    'llm_model': c.llm_model or '',
+                    'llm_system_prompt': c.llm_system_prompt or '',
+                    'llm_cache_minutes': c.llm_cache_minutes,
+                    'llm_max_analysis_days': c.llm_max_analysis_days,
+                    'llm_rate_limit_minutes': c.llm_rate_limit_minutes
                 }
+        except SQLAlchemyError as e:
+            self._throw(e)
+
+    def get_user_config_admin(self) -> dict:
+        try:
+            with self._app.app_context():
+                c = _UserConfig.query.first()
+                if not c:
+                    return {'api_key': ''}
+                return {'api_key': c.llm_api_key or ''}
         except SQLAlchemyError as e:
             self._throw(e)
 
@@ -1092,6 +1141,20 @@ class Data:
                 return None
         else:
             return None
+
+    def _clean_old_logs(self):
+        try:
+            with self._app.app_context():
+                uc = _UserConfig.query.first()
+                if not uc or not uc.log_retention_days or uc.log_retention_days <= 0:
+                    return
+                cutoff = datetime.utcnow() - timedelta(days=uc.log_retention_days)
+                deleted = _UsageLog.query.filter(_UsageLog.timestamp < cutoff).delete()
+                if deleted:
+                    db.session.commit()
+                    l.info(f'[log_cleanup] deleted {deleted} logs older than {uc.log_retention_days} days')
+        except Exception as e:
+            l.warning(f'[log_cleanup] failed: {e}')
 
     def _clean_cache(self):
         '''

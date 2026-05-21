@@ -448,7 +448,7 @@ def index():
         else:
             injects.append(str(i))
 
-    evt = p.trigger_event(pl.IndexAccessEvent(page_title=c.page.title, page_desc=c.page.desc, page_favicon=c.page.favicon, page_background=c.page.background, cards=cards, injects=injects))
+    evt = p.trigger_event(pl.IndexAccessEvent(page_title=c.page.title, page_desc=c.page.desc, page_favicon=c.page.favicon, page_background=d.get_user_config().get('page_background_url') or c.page.background, cards=cards, injects=injects))
 
     if evt.interception:
         return evt.interception
@@ -1128,25 +1128,48 @@ def api_toggles():
 @cross_origin(c.main.cors_origins)
 def api_user_config():
     if flask.request.method == 'POST':
+        secret = flask.g.secret
+        body = flask.request.get_json(silent=True) or {}
+        if not (body.pop('secret', None) == secret
+                or flask.request.args.get('secret') == secret
+                or flask.request.cookies.get('sleepy-secret') == secret):
+            return {'success': False, 'message': 'unauthorized'}, 401
         from data import _UserConfig, db
-        data = flask.request.get_json(silent=True) or {}
         try:
             uc = _UserConfig.query.first()
             if uc:
-                if 'focus_default_minutes' in data:
-                    uc.focus_default_minutes = max(1, min(int(data['focus_default_minutes']), 120))
-                if 'heatmap_default_days' in data:
-                    uc.heatmap_default_days = max(7, min(int(data['heatmap_default_days']), 365))
-                if 'browser_normalize' in data:
-                    uc.browser_normalize = bool(data['browser_normalize'])
-                if 'llm_max_analysis_days' in data:
-                    uc.llm_max_analysis_days = max(1, min(int(data['llm_max_analysis_days']), 90))
+                int_fields = {
+                    'focus_default_minutes': (1, 120),
+                    'focus_rest_minutes': (0, 30),
+                    'heatmap_default_days': (7, 365),
+                    'log_retention_days': (0, 365),
+                    'llm_cache_minutes': (5, 1440),
+                    'llm_max_analysis_days': (1, 90),
+                    'llm_rate_limit_minutes': (0, 1440)
+                }
+                str_fields = ['page_background_url', 'llm_api_key', 'llm_base_url', 'llm_model', 'llm_system_prompt']
+                bool_fields = ['browser_normalize', 'llm_enabled']
+                for k, (lo, hi) in int_fields.items():
+                    if k in body:
+                        setattr(uc, k, max(lo, min(int(body[k]), hi)))
+                for k in str_fields:
+                    if k in body:
+                        setattr(uc, k, str(body[k]).strip()[:1024])
+                for k in bool_fields:
+                    if k in body:
+                        setattr(uc, k, bool(body[k]))
                 db.session.commit()
             return {'success': True, 'config': d.get_user_config()}
         except Exception as e:
             l.warning(f'[user_config] update failed: {e}')
             return {'success': False, 'message': str(e)}
     return {'success': True, 'config': d.get_user_config()}
+
+
+@app.route('/api/settings/user_config/admin')
+@u.require_secret()
+def api_user_config_admin():
+    return {'success': True, 'config': d.get_user_config_admin()}
 
 
 @app.route('/api/debug/cards')
@@ -1218,20 +1241,22 @@ def api_export_usage():
 
 @app.route('/stats')
 def stats_page():
+    bg = d.get_user_config().get('page_background_url') or c.page.background
     return render_template(
         'stats.html',
         page_title=f'{c.page.name} - 使用统计',
-        page_background=c.page.background,
+        page_background=bg,
         page_favicon=c.page.favicon
     ) or flask.abort(404)
 
 
 @app.route('/stats/annual')
 def annual_page():
+    bg = d.get_user_config().get('page_background_url') or c.page.background
     return render_template(
         'annual.html',
         page_title=f'{c.page.name} - 年度报告',
-        page_background=c.page.background,
+        page_background=bg,
         page_favicon=c.page.favicon
     ) or flask.abort(404)
 

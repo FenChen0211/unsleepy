@@ -201,31 +201,116 @@ async function loadConfig() {
     const d = await r.json();
     const c = d.config || {};
     const list = document.getElementById('config-list');
-    list.innerHTML = [
-        { key: 'focus_default_minutes', name: '专注默认时长（分钟）', desc: '点击"开始专注"时的默认番茄钟时长，范围 1-120', val: c.focus_default_minutes || 25, min: 1, max: 120 },
-        { key: 'heatmap_default_days', name: '热力图默认展示天数', desc: '打开热力图时默认展示最近多少天的数据，范围 7-365', val: c.heatmap_default_days || 90, min: 7, max: 365 },
-        { key: 'llm_max_analysis_days', name: 'LLM 最大分析天数', desc: 'AI 分析最多回溯多少天的使用数据，防止超长 prompt 浪费 Token，范围 1-90', val: c.llm_max_analysis_days || 14, min: 1, max: 90 },
-    ].map(function (item) {
-        return '<div class="config-row">' +
-            '<label>' + item.name + '</label>' +
-            '<input type="number" data-key="' + item.key + '" value="' + item.val + '" min="' + item.min + '" max="' + item.max + '" />' +
-            '<span class="config-desc">' + item.desc + '</span>' +
-            '</div>';
-    }).join('');
-    list.innerHTML += '<div class="config-row">' +
-        '<label>浏览器窗口标题合并</label>' +
-        '<label class="toggle-switch">' +
-        '<input type="checkbox" data-key="browser_normalize"' + (c.browser_normalize ? ' checked' : '') + ' />' +
-        '<span class="toggle-slider"></span>' +
-        '</label>' +
-        '<span class="config-desc">开启后，"GitHub - Microsoft Edge" 之类带标签页标题的浏览器名会自动合并为 "Microsoft Edge"</span>' +
-        '</div>';
+
+    // 获取完整 api_key（需要认证）
+    let apiKey = c.llm_api_key || '';
+    try {
+        const ar = await fetch('/api/settings/user_config/admin');
+        const ad = await ar.json();
+        if (ad.config && ad.config.api_key) apiKey = ad.config.api_key;
+    } catch (e) {}
+
+    const sections = [
+        { title: '外观', items: [
+            { type: 'text', key: 'page_background_url', name: '背景图片URL',
+              desc: '设置后前台和后台页面使用该图片作为背景。留空则使用纯黑背景。填写完整URL如 https://img.example.com/bg.jpg',
+              val: c.page_background_url || '', placeholder: 'https://...', max: 512 }
+        ]},
+        { title: '专注模式', items: [
+            { type: 'number', key: 'focus_default_minutes', name: '默认时长（分钟）',
+              desc: '点击开始专注时的默认番茄钟时长', val: c.focus_default_minutes || 25, min: 1, max: 120 },
+            { type: 'number', key: 'focus_rest_minutes', name: '完成后休息（分钟）',
+              desc: '专注时间结束后自动进入休息模式的时长。设为0则不自动休息', val: c.focus_rest_minutes || 5, min: 0, max: 30 }
+        ]},
+        { title: '热力图', items: [
+            { type: 'number', key: 'heatmap_default_days', name: '默认展示天数',
+              desc: '打开热力图时默认展示最近多少天的活跃数据', val: c.heatmap_default_days || 90, min: 7, max: 365 }
+        ]},
+        { title: 'LLM 分析', items: [
+            { type: 'bool', key: 'llm_enabled', name: '启用LLM分析',
+              desc: '开启后前台会出现AI洞察卡片。需同时填写下方API Key' },
+            { type: 'password', key: 'llm_api_key', name: 'API Key',
+              desc: 'OpenAI或兼容API的密钥。以sk-开头。Ollama本地部署可填ollama',
+              val: apiKey, placeholder: 'sk-...', max: 256 },
+            { type: 'text', key: 'llm_base_url', name: 'API 地址',
+              desc: 'OpenAI填 https://api.openai.com/v1，Ollama填 http://localhost:11434',
+              val: c.llm_base_url || '', placeholder: 'https://api.openai.com/v1', max: 256 },
+            { type: 'text', key: 'llm_model', name: '模型名称',
+              desc: '如 gpt-4o-mini、gpt-3.5-turbo、llama3 等',
+              val: c.llm_model || '', placeholder: 'gpt-3.5-turbo', max: 128 },
+            { type: 'textarea', key: 'llm_system_prompt', name: '系统提示词',
+              desc: '自定义AI分析的行为指令。可指定语气、分析角度、字数限制等',
+              val: c.llm_system_prompt || '', placeholder: '你是一个使用数据分析助手...', max: 1024 },
+            { type: 'number', key: 'llm_cache_minutes', name: '缓存时间（分钟）',
+              desc: '同一份分析结果缓存多久。避免短时间内重复调用API浪费Token',
+              val: c.llm_cache_minutes || 60, min: 5, max: 1440 },
+            { type: 'number', key: 'llm_max_analysis_days', name: '最大分析天数',
+              desc: 'AI最多回溯多少天的使用数据。天数越大消耗Token越多',
+              val: c.llm_max_analysis_days || 14, min: 1, max: 90 },
+            { type: 'number', key: 'llm_rate_limit_minutes', name: '调用冷却（分钟）',
+              desc: '两次LLM调用之间的最小间隔。设为0则不限制。建议30分钟以上防止恶意刷Token',
+              val: c.llm_rate_limit_minutes || 0, min: 0, max: 1440 }
+        ]},
+        { title: '数据管理', items: [
+            { type: 'bool', key: 'browser_normalize', name: '浏览器窗口标题合并',
+              desc: '开启后Edge/Chrome等带标签页标题的窗口名会被合并为浏览器名' },
+            { type: 'number', key: 'log_retention_days', name: '日志保留天数',
+              desc: '超过此天数的使用记录将被自动清理。设为0表示永久保留',
+              val: c.log_retention_days || 0, min: 0, max: 365 }
+        ]}
+    ];
+
+    let html = '';
+    sections.forEach(function(sec) {
+        html += '<h3 style="font-family:var(--font-mono);font-size:0.75rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.1em;margin:16px 0 8px;padding-bottom:4px;border-bottom:1px solid var(--border);">// ' + sec.title + '</h3>';
+        sec.items.forEach(function(item) {
+            if (item.type === 'bool') {
+                html += '<div class="config-row">' +
+                    '<label>' + item.name + '</label>' +
+                    '<label class="toggle-switch">' +
+                    '<input type="checkbox" data-key="' + item.key + '"' + (c[item.key] ? ' checked' : '') + ' />' +
+                    '<span class="toggle-slider"></span>' +
+                    '</label>' +
+                    '<span class="config-desc">' + item.desc + '</span>' +
+                    '</div>';
+            } else if (item.type === 'textarea') {
+                html += '<div class="config-row" style="flex-direction:column;align-items:flex-start;">' +
+                    '<label>' + item.name + '</label>' +
+                    '<textarea data-key="' + item.key + '" placeholder="' + (item.placeholder || '') + '" maxlength="' + (item.max || 1024) + '" style="width:100%;padding:6px 8px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg-elevated);color:var(--text-primary);font-family:inherit;font-size:0.85em;resize:vertical;min-height:60px;">' + (item.val || '') + '</textarea>' +
+                    '<span class="config-desc">' + item.desc + '</span>' +
+                    '</div>';
+            } else if (item.type === 'password') {
+                html += '<div class="config-row">' +
+                    '<label>' + item.name + '</label>' +
+                    '<input type="password" data-key="' + item.key + '" value="' + (item.val || '') + '" placeholder="' + (item.placeholder || '') + '" style="width:200px;padding:4px 8px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg-elevated);color:var(--text-primary);font-family:inherit;" />' +
+                    '<span class="config-desc">' + item.desc + '</span>' +
+                    '</div>';
+            } else {
+                html += '<div class="config-row">' +
+                    '<label>' + item.name + '</label>' +
+                    '<input type="' + (item.type || 'text') + '" data-key="' + item.key + '" value="' + (item.val || '') + '" placeholder="' + (item.placeholder || '') + '"' +
+                    (item.min !== undefined ? ' min="' + item.min + '"' : '') +
+                    (item.max !== undefined && item.type === 'number' ? ' max="' + item.max + '"' : '') +
+                    (item.type === 'text' ? ' maxlength="' + (item.max || 512) + '" style="width:300px;"' : '') +
+                    ' style="padding:4px 8px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg-elevated);color:var(--text-primary);font-family:inherit;" />' +
+                    '<span class="config-desc">' + item.desc + '</span>' +
+                    '</div>';
+            }
+        });
+    });
+    list.innerHTML = html;
 }
 
 async function saveConfig() {
     const payload = {};
     document.querySelectorAll('#config-list input[type=number]').forEach(function (inp) {
         payload[inp.dataset.key] = parseInt(inp.value) || 0;
+    });
+    document.querySelectorAll('#config-list input[type=text], #config-list input[type=password]').forEach(function (inp) {
+        payload[inp.dataset.key] = inp.value || '';
+    });
+    document.querySelectorAll('#config-list textarea').forEach(function (ta) {
+        payload[ta.dataset.key] = ta.value || '';
     });
     document.querySelectorAll('#config-list input[type=checkbox]').forEach(function (cb) {
         payload[cb.dataset.key] = cb.checked;

@@ -86,12 +86,27 @@ class DisplayToggleView(_SecureMixin, ModelView):
 
 
 class UserConfigView(_SecureMixin, ModelView):
-    column_list = ('focus_default_minutes', 'heatmap_default_days', 'browser_normalize', 'llm_max_analysis_days')
+    column_list = (
+        'page_background_url', 'focus_default_minutes', 'focus_rest_minutes',
+        'heatmap_default_days', 'browser_normalize', 'log_retention_days',
+        'llm_enabled', 'llm_api_key', 'llm_base_url', 'llm_model',
+        'llm_system_prompt', 'llm_cache_minutes', 'llm_max_analysis_days', 'llm_rate_limit_minutes'
+    )
     column_labels = {
+        'page_background_url': '背景图片URL',
         'focus_default_minutes': '专注默认时长(分钟)',
+        'focus_rest_minutes': '专注后休息(分钟)',
         'heatmap_default_days': '热力图默认天数',
         'browser_normalize': '浏览器名称合并',
-        'llm_max_analysis_days': 'LLM最大分析天数'
+        'log_retention_days': '日志保留天数',
+        'llm_enabled': 'LLM分析开关',
+        'llm_api_key': 'LLM API Key',
+        'llm_base_url': 'LLM API地址',
+        'llm_model': 'LLM模型名',
+        'llm_system_prompt': '自定义提示词',
+        'llm_cache_minutes': 'LLM缓存时间(分钟)',
+        'llm_max_analysis_days': 'LLM最大分析天数',
+        'llm_rate_limit_minutes': 'LLM调用冷却(分钟)'
     }
     can_create = False
     can_delete = False

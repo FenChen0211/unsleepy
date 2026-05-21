@@ -311,6 +311,7 @@ class ConfigModel(BaseModel):
     plugins_enabled: list[str] = [
         'v4_compatible', # 默认启用 v4 兼容
         'theme_detect', # 默认启用主题检测
+        'llm_analysis', # LLM分析插件（需在后台配置中开启llm_enabled）
     ]
     '''
     `plugins_enabled`
