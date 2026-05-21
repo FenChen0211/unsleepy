@@ -1,41 +1,45 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ page_title }}</title>
     <meta name="description" content="{{ page_desc }}">
-    <meta name="theme-color" content="#5470c6">
+    <meta name="theme-color" content="#0a0a0a">
     <link rel="icon" href="{{ page_favicon }}">
     <link rel="manifest" href="/manifest.json">
-    <link rel="stylesheet" href="{{ url_for('static', filename='main.css') }}?v=2">
+    <link rel="stylesheet" href="{{ url_for('static', filename='main.css') }}?v=3">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="/static/echarts.min.js" defer></script>
     {% if page_background %}
     <style>
-        body {
-            background-image: url('{{ page_background }}');
-        }
+        body { background-image: url('{{ page_background }}'); }
     </style>
     {% endif %}
-
 </head>
-
 <body>
     <div class="container">
-        {% for card_name, card_value in cards.items() %}
-        <div class="card" id="{{ card_name }}">
-            {{ card_value | safe }}
+        <div class="card-grid" id="card-grid">
+            {% for card_name, card_value in cards.items() %}
+            <div class="card-tile" data-card="{{ card_name }}">
+                {{ card_value | safe }}
+            </div>
+            {% endfor %}
         </div>
-        {% endfor %}
     </div>
+
+    <!-- Modal -->
+    <div class="modal-overlay" id="card-modal">
+        <div class="modal-content" id="modal-content">
+            <button class="modal-close" id="modal-close">&times;</button>
+            <div id="modal-body"></div>
+        </div>
+    </div>
+
+    <script src="/static/modal.js" defer></script>
+    <script type="module" src="{{ url_for('static', filename='get.js') }}" defer></script>
+    {{ inject | safe }}
 </body>
-
-<script type="module" src="{{ url_for('static', filename='get.js') }}" defer></script>
-
-{{ inject | safe }}
-
 </html>

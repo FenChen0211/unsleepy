@@ -6,21 +6,18 @@
     <title>{{ c.page.name }} - 管理面板</title>
     <meta name="description" content="管理面板" />
     <link rel="icon" href="{{ c.page.favicon }}" />
-    <link rel="stylesheet" href="{{ url_for('static', filename='main.css') }}?v=2" />
-    <link rel="stylesheet" href="{{ url_for('static', filename='panel.css') }}?v=2" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='main.css') }}?v=3" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='panel.css') }}?v=3" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-    {% if c.page.background %}
-    <style>body { background-image: url('{{ c.page.background }}'); }</style>
-    {% endif %}
 </head>
 <body class="admin-panel">
     <div class="panel-layout">
         <nav class="panel-sidebar">
             <div class="sidebar-header">
                 <h2>{{ c.page.name }}</h2>
-                <span style="font-size: 0.8em; opacity: 0.7;">管理面板</span>
+                <span>管理面板</span>
             </div>
             <ul class="sidebar-nav" id="sidebar-nav">
                 <li class="active" data-tab="overview">系统概览</li>
@@ -32,7 +29,7 @@
             </ul>
             <div class="sidebar-footer">
                 <a href="/">← 返回前台</a>
-                <button class="btn btn-danger" id="logout-btn" style="width: 100%; margin-top: 8px;">退出登录</button>
+                <button class="btn btn-danger" id="logout-btn" style="width: 100%;">退出登录</button>
             </div>
         </nav>
 
@@ -40,7 +37,7 @@
             <!-- 系统概览 -->
             <section id="tab-overview" class="panel-tab active">
                 <div class="panel-card">
-                    <h2 class="tech-title">系统概览</h2>
+                    <h2>系统概览</h2>
                     <div class="overview-grid">
                         <div class="ov-item">
                             <span class="ov-label">当前状态</span>
@@ -62,24 +59,18 @@
                 </div>
 
                 <div class="panel-card">
-                    <h2 class="tech-title">状态切换
-                        <span class="section-desc">选择当前设备展示的状态，前台页面会实时更新</span>
-                    </h2>
+                    <h2>状态切换</h2>
+                    <p style="color: var(--text-secondary); font-size: 0.9em; margin-top: 0;">选择当前设备展示的状态，前台页面会实时更新</p>
                     <div class="status-selector" id="status-selector"></div>
                 </div>
 
                 {% if c.metrics.enabled %}
                 <div class="panel-card">
-                    <h2 class="tech-title">访问统计
-                        <span class="section-desc">网站各路径的今日/本周/本月/本年访问量</span>
-                    </h2>
+                    <h2>访问统计</h2>
+                    <p style="color: var(--text-secondary); font-size: 0.9em; margin-top: 0;">网站各路径的今日/本周/本月/本年访问量</p>
                     <div class="metrics-container" id="metrics-container"></div>
                 </div>
                 {% endif %}
-
-                <!-- [已移除] 主题切换UI —— 当前仅保留暗色主题，如需恢复多主题支持，
-                     可重新添加 theme selector 并传入 available_themes 参数。
-                     后端主题系统（flask.g.theme / cookie / render_template fallback）仍然保留。 -->
 
                 {{ inject | safe }}
             </section>
@@ -87,47 +78,42 @@
             <!-- 展示开关 -->
             <section id="tab-toggles" class="panel-tab">
                 <div class="panel-card">
-                    <h2 class="tech-title">前台展示开关
-                        <span class="section-desc">控制主页上哪些功能卡片对访客可见。修改后刷新主页即可生效</span>
-                    </h2>
+                    <h2>前台展示开关</h2>
+                    <p style="color: var(--text-secondary); font-size: 0.9em; margin-top: 0;">控制主页上哪些功能卡片对访客可见。修改后刷新主页即可生效</p>
                     <div class="toggle-list" id="toggle-list">
                         <div class="loading-text">加载中...</div>
                     </div>
-                    <button class="btn btn-primary" id="toggles-save-btn" style="margin-top: 12px;">保存设置</button>
-                    <span id="toggles-save-msg" style="margin-left: 10px; font-size: 0.85em;"></span>
+                    <button class="btn btn-primary" id="toggles-save-btn" style="margin-top: 16px;">保存设置</button>
+                    <span id="toggles-save-msg" style="margin-left: 10px; font-size: 0.85em; color: var(--text-muted);"></span>
                 </div>
             </section>
 
             <!-- 用户配置 -->
             <section id="tab-config" class="panel-tab">
                 <div class="panel-card">
-                    <h2 class="tech-title">用户配置
-                        <span class="section-desc">自定义各项功能的默认参数，修改后刷新前台页面生效</span>
-                    </h2>
+                    <h2>用户配置</h2>
+                    <p style="color: var(--text-secondary); font-size: 0.9em; margin-top: 0;">自定义各项功能的默认参数，修改后刷新前台页面生效</p>
                     <div class="config-list" id="config-list">
                         <div class="loading-text">加载中...</div>
                     </div>
-                    <button class="btn btn-primary" id="config-save-btn" style="margin-top: 12px;">保存配置</button>
-                    <span id="config-save-msg" style="margin-left: 10px; font-size: 0.85em;"></span>
+                    <button class="btn btn-primary" id="config-save-btn" style="margin-top: 16px;">保存配置</button>
+                    <span id="config-save-msg" style="margin-left: 10px; font-size: 0.85em; color: var(--text-muted);"></span>
                 </div>
             </section>
 
             <!-- 设备管理 -->
             <section id="tab-devices" class="panel-tab">
                 <div class="panel-card">
-                    <h2 class="tech-title">设备管理
-                        <span class="section-desc">查看和管理所有已连接的设备，设备名由客户端推送时自动注册</span>
-                    </h2>
-                    <div class="panel-actions" style="margin-bottom: 12px;">
+                    <h2>设备管理</h2>
+                    <p style="color: var(--text-secondary); font-size: 0.9em; margin-top: 0;">查看和管理所有已连接的设备，设备名由客户端推送时自动注册</p>
+                    <div class="panel-actions" style="margin: 16px 0;">
                         <button class="btn btn-danger" id="clear-devices-btn">清除所有设备</button>
                         <button class="btn btn-secondary" id="refresh-devices-btn">刷新列表</button>
                         <label class="toggle-switch" style="margin-left: auto;">
                             <input type="checkbox" id="private-mode-toggle" />
                             <span class="toggle-slider"></span>
                         </label>
-                        <span style="vertical-align: middle; margin-left: 5px; font-size: 0.85em;">隐私模式
-                            <span style="color: var(--text-secondary);">(开启后前台不展示设备信息)</span>
-                        </span>
+                        <span style="font-size: 0.85em; color: var(--text-secondary);">隐私模式</span>
                     </div>
                     <table class="device-list">
                         <thead>
@@ -149,24 +135,23 @@
             <!-- 应用分类 -->
             <section id="tab-categories" class="panel-tab">
                 <div class="panel-card">
-                    <h2 class="tech-title">应用分类
-                        <span class="section-desc">给应用打标签。系统通过「关键词匹配」自动分类：应用名包含关键词即归入对应分类。例如：VS Code → 开发、Edge → 浏览器、Steam → 游戏</span>
-                    </h2>
-                    <div class="cat-form" style="margin-bottom: 16px; display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end;">
+                    <h2>应用分类</h2>
+                    <p style="color: var(--text-secondary); font-size: 0.9em; margin-top: 0;">给应用打标签。系统通过「关键词匹配」自动分类：应用名包含关键词即归入对应分类</p>
+                    <div class="cat-form">
                         <div>
-                            <label style="font-size: 0.8em; color: var(--text-secondary);">匹配关键词</label>
-                            <input id="cat-pattern" placeholder="例如：edge" style="padding: 4px 8px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--bg-elevated); color: var(--text-primary); width: 140px;" />
+                            <label>匹配关键词</label>
+                            <input id="cat-pattern" placeholder="例如：edge" style="width: 140px;" />
                         </div>
                         <div>
-                            <label style="font-size: 0.8em; color: var(--text-secondary);">分类标签</label>
-                            <input id="cat-label" placeholder="例如：浏览器" style="padding: 4px 8px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--bg-elevated); color: var(--text-primary); width: 120px;" />
+                            <label>分类标签</label>
+                            <input id="cat-label" placeholder="例如：浏览器" style="width: 120px;" />
                         </div>
                         <div>
-                            <label style="font-size: 0.8em; color: var(--text-secondary);">颜色</label>
-                            <input id="cat-color" type="color" value="#5470c6" style="width: 36px; height: 30px; border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer;" />
+                            <label>颜色</label>
+                            <input id="cat-color" type="color" value="#3b82f6" style="width: 36px; height: 32px; padding: 0; border: none; cursor: pointer;" />
                         </div>
                         <button class="btn btn-primary" id="cat-add-btn">添加分类</button>
-                        <span id="cat-add-msg" style="font-size: 0.85em;"></span>
+                        <span id="cat-add-msg" style="font-size: 0.85em; color: var(--text-muted);"></span>
                     </div>
                     <table class="device-list">
                         <thead>
@@ -187,14 +172,13 @@
             <!-- 使用记录 -->
             <section id="tab-logs" class="panel-tab">
                 <div class="panel-card">
-                    <h2 class="tech-title">使用记录
-                        <span class="section-desc">客户端每次切换应用时自动记录的原始数据。duration 秒数由相邻记录的间隔时间自动计算</span>
-                    </h2>
-                    <div class="panel-actions" style="margin-bottom: 12px;">
+                    <h2>使用记录</h2>
+                    <p style="color: var(--text-secondary); font-size: 0.9em; margin-top: 0;">客户端每次切换应用时自动记录的原始数据</p>
+                    <div class="panel-actions" style="margin: 16px 0;">
                         <button class="btn btn-secondary" id="logs-refresh-btn">刷新</button>
                         <button class="btn btn-secondary" id="logs-clear-btn">清除所有记录</button>
                         <a href="/api/export/usage" target="_blank" class="btn btn-secondary">导出 CSV</a>
-                        <span style="margin-left: auto; font-size: 0.85em; color: var(--text-secondary);" id="logs-count">-</span>
+                        <span style="margin-left: auto; font-size: 0.85em; color: var(--text-muted);" id="logs-count">-</span>
                     </div>
                     <div style="overflow-x: auto;">
                         <table class="device-list">
@@ -218,7 +202,7 @@
             {% for id, card in cards.items() %}
             <section class="panel-tab" id="tab-plugin-{{ id }}">
                 <div class="panel-card">
-                    <h2 class="tech-title">{{ card.title }} <span class="plugin-badge">{{ card.plugin }}</span></h2>
+                    <h2>{{ card.title }} <span class="plugin-badge">{{ card.plugin }}</span></h2>
                     <div>{{ card.content | safe }}</div>
                 </div>
             </section>
