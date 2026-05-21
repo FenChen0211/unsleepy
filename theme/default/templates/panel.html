@@ -5,13 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{{ c.page.name }} - 管理面板</title>
     <meta name="description" content="管理面板" />
-    <meta name="theme-color" content="#5470c6" />
+    <meta name="theme-color" content="#050505" />
     <link rel="icon" href="{{ c.page.favicon }}" />
-    <link rel="stylesheet" href="{{ url_for('static', filename='main.css') }}?v=4" />
-    <link rel="stylesheet" href="{{ url_for('static', filename='panel.css') }}?v=4" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='main.css') }}?v=7" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='panel.css') }}?v=7" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    {% if page_background %}
+    <style>body { background-image: url('{{ page_background }}'); }</style>
+    {% endif %}
 </head>
 <body class="admin-panel">
     <div class="panel-layout">

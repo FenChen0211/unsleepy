@@ -382,6 +382,9 @@ def index():
     # 加载系统卡片
     uc = d.get_user_config()
     display_name = uc.get('page_name') or c.page.name
+    learn_more_link = (uc.get('learn_more_link') or '').strip()
+    if not learn_more_link or 'github.com/sleepy-project/sleepy' in learn_more_link:
+        learn_more_link = c.page.learn_more_link
     main_card: str = render_template(  # type: ignore
         'main.index.html',
         _dirname='cards',
@@ -394,7 +397,7 @@ def index():
         _dirname='cards',
         more_text=more_text,
         username=display_name,
-        learn_more_link=uc.get('learn_more_link') or c.page.learn_more_link,
+        learn_more_link=learn_more_link,
         learn_more_text=uc.get('learn_more_text') or c.page.learn_more_text
         # [已移除] available_themes —— 当前仅保留暗色主题，前端切换UI已隐藏。
         # 如需恢复多主题，重新传入 available_themes=u.themes_available() 并在模板中添加 selector。
@@ -911,7 +914,8 @@ def admin_panel():
         # [已移除] available_themes —— 当前仅保留暗色主题，前端切换UI已隐藏。
         # 如需恢复多主题，重新传入 available_themes=u.themes_available() 并在模板中添加 selector。
         cards=cards,
-        inject=inject
+        inject=inject,
+        page_background=d.get_user_config().get('page_background_url') or c.page.background
     ) or flask.abort(404)
     response = flask.make_response(rendered)
     if flask.request.args.get('secret') == c.main.secret:
@@ -1040,7 +1044,8 @@ def login():
     return render_template(
         'login.html',
         c=c,
-        current_theme=flask.g.theme
+        current_theme=flask.g.theme,
+        page_background=d.get_user_config().get('page_background_url') or c.page.background
     ) or flask.abort(404)
 
 
@@ -1234,6 +1239,8 @@ def api_user_config():
                 for k in bool_fields:
                     if k in body:
                         setattr(uc, k, bool(body[k]))
+                if 'llm_privacy_mode' in body:
+                    d.set_llm_privacy_mode(bool(body['llm_privacy_mode']))
                 db.session.commit()
             return {'success': True, 'config': d.get_user_config()}
         except Exception as e:

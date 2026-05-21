@@ -1,4 +1,4 @@
-<h2>使用分析</h2>
+﻿<h2>使用分析</h2>
 <div style="display: flex; gap: 6px; justify-content: center; margin-bottom: 6px;">
     <select id="stats-device-sel" style="display: none; padding: 4px 8px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--bg-elevated); color: var(--text-primary); font-size: 0.85em; width: 100%; max-width: 200px;">
         <option value="">全部设备</option>
@@ -48,7 +48,7 @@
         }
 
         const catMap = {};
-        const colors = ['#5470c6','#91cc75','#fac858','#ee6666','#73c0de','#3ba272','#fc8452','#9a60b4'];
+        const colors = ['#d99a27','#a8751e','#f0b445','#6f5b34','#49b86a','#8f8a7e','#d35f5f','#c6b89a'];
         let ci = 0;
         apps.forEach(a => {
             const cat = a.category || '未分类';
@@ -136,7 +136,7 @@
             const ts = h > 0 ? h + 'h ' + m + 'm' : m + 'm';
             return '<div style="display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid var(--border); font-size: 0.88em;">' +
                 '<span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 62%;">' +
-                '<span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #5470c6; margin-right: 4px; vertical-align: middle;"></span>' +
+                '<span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); margin-right: 4px; vertical-align: middle;"></span>' +
                 escapeTags(a.app_name) + '</span>' +
                 '<span style="color: var(--text-secondary); white-space: nowrap;">' + ts + ' (' + pct + '%)</span></div>';
         }).join('');

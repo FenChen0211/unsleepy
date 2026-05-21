@@ -243,7 +243,7 @@ async function loadToggles() {
         { key: 'show_category_chart', name: '分类占比饼图', desc: '在统计卡片中展示应用类型占比的环形图' },
         { key: 'show_heatmap', name: '活跃热力图', desc: '以 GitHub 贡献图风格的日历热力图展示过去 N 天的活跃程度。需后台配置且需有使用数据才会出现颜色格子' },
         { key: 'show_focus_mode', name: '专注模式', desc: '显示番茄钟计时器，可开始/结束专注会话，记录专注时长' },
-        { key: 'show_llm_insight', name: 'AI 分析洞察', desc: '调用 LLM 对使用数据给出简短分析建议。需先在 config.yaml 中配置 api_key 才能启用' },
+        { key: 'show_llm_insight', name: 'AI 分析洞察', desc: '控制前台是否显示 AI 洞察卡片。还需要到「用户配置 / LLM 分析 / API 配置」里启用 LLM 并填写 API Key 才能真正分析' },
     ].map(function (item) {
         return '<div class="toggle-row">' +
             '<label class="toggle-switch">' +
@@ -325,13 +325,15 @@ async function loadConfig() {
             { type: 'number', key: 'heatmap_default_days', name: '默认展示天数',
               desc: '打开热力图时默认展示最近多少天的活跃数据', val: c.heatmap_default_days || 90, min: 7, max: 365 }
         ]},
-        { title: 'LLM 分析', items: [
+        { title: 'LLM 分析 / API 配置', items: [
             { type: 'bool', key: 'llm_enabled', name: '启用LLM分析',
-              desc: '开启后前台会出现AI洞察卡片。需同时填写下方API Key' },
+              desc: '开启后前台会出现AI洞察卡片。API Key 和 API Base URL 就在本组配置项里填写' },
+            { type: 'bool', key: 'llm_privacy_mode', name: '隐私分析模式',
+              desc: '开启后发送给 LLM 的数据只保留分类汇总、时长和活跃设备数量，不包含具体应用名或设备名。分析会更保守，但更适合第三方模型。' },
             { type: 'password', key: 'llm_api_key', name: 'API Key',
               desc: 'OpenAI或兼容API的密钥。以sk-开头。Ollama本地部署可填ollama',
               val: apiKey, placeholder: 'sk-...', max: 256 },
-            { type: 'text', key: 'llm_base_url', name: 'API 地址',
+            { type: 'text', key: 'llm_base_url', name: 'API Base URL',
               desc: 'OpenAI填 https://api.openai.com/v1，Ollama填 http://localhost:11434',
               val: c.llm_base_url || '', placeholder: 'https://api.openai.com/v1', max: 256 },
             { type: 'text', key: 'llm_model', name: '模型名称',

@@ -180,7 +180,7 @@ class _PageConfigModel(BaseModel):
     - *默认为 `GitHub Repo`*
     '''
 
-    learn_more_link: str = 'https://github.com/sleepy-project/sleepy'
+    learn_more_link: str = 'https://github.com/FenChen0211/unsleepy'
     '''
     `page.learn_more_link`
     更多信息链接的目标

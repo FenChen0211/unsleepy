@@ -20,7 +20,8 @@ def _get_uc():
     import flask
     with flask.current_app.app_context():
         uc = _UserConfig.query.first()
-    if uc and uc.llm_enabled and uc.llm_api_key:
+    if uc and uc.llm_enabled:
+        uc.llm_privacy_mode = _get_privacy_mode(False)
         return uc
 
     cfg = p.config or {}
@@ -36,8 +37,22 @@ def _get_uc():
         llm_system_prompt=cfg.get('system_prompt') or cfg.get('llm_system_prompt') or '',
         llm_cache_minutes=int(cfg.get('cache_minutes') or cfg.get('llm_cache_minutes') or 60),
         llm_max_analysis_days=int(cfg.get('max_analysis_days') or cfg.get('llm_max_analysis_days') or 14),
-        llm_rate_limit_minutes=int(cfg.get('rate_limit_minutes') or cfg.get('llm_rate_limit_minutes') or 0)
+        llm_rate_limit_minutes=int(cfg.get('rate_limit_minutes') or cfg.get('llm_rate_limit_minutes') or 0),
+        llm_privacy_mode=bool(cfg.get('privacy_mode') or cfg.get('llm_privacy_mode') or False)
     )
+
+
+def _get_privacy_mode(default=False) -> bool:
+    try:
+        from data import _PluginData
+        import flask
+        with flask.current_app.app_context():
+            row = _PluginData.query.filter_by(id='llm_analysis').first()
+            if row and row.data:
+                return bool(row.data.get('privacy_mode', default))
+    except Exception:
+        pass
+    return bool(default)
 
 
 @p.index_card('llm-insight')
@@ -53,10 +68,19 @@ def llm_insight_card():
         pass
     try:
         uc = _get_uc()
-        if not uc or not uc.llm_enabled or not uc.llm_api_key:
+        if not uc or not uc.llm_enabled:
             return ''
     except Exception:
         return ''
+    if not uc.llm_api_key:
+        return '''
+        <h2>AI 洞察</h2>
+        <div id="llm-content" style="font-size: 0.9em; line-height: 1.7; text-align: left; min-height: 40px; color: var(--text-secondary);">
+            <p>LLM 分析已开启，但还没有配置 API Key 和 API Base URL。</p>
+            <p>请到后台「用户配置 / LLM 分析 / API 配置」填写后再使用。</p>
+            <a class="btn btn-primary" href="/panel" style="display: inline-flex; width: auto; margin-top: 10px;">去后台配置</a>
+        </div>
+        '''
     return '''
     <h2>AI 洞察</h2>
     <div id="llm-content" style="font-size: 0.9em; line-height: 1.7; text-align: left; min-height: 40px; color: var(--text-secondary);">
@@ -115,7 +139,7 @@ def llm_insight_api():
 
 
 def _get_insight(uc) -> str | None:
-    from data import _UsageLog, _DeviceStatusData
+    from data import _UsageLog, _DeviceStatusData, _AppCategory
     from datetime import datetime, timedelta
     from collections import defaultdict
     try:
@@ -124,6 +148,7 @@ def _get_insight(uc) -> str | None:
         with app.app_context():
             max_days = uc.llm_max_analysis_days if uc else 14
             max_days = max(1, min(max_days, 90))
+            privacy_mode = bool(getattr(uc, 'llm_privacy_mode', _get_privacy_mode(False)))
 
             end = datetime.utcnow()
             start = end - timedelta(days=max_days)
@@ -132,6 +157,7 @@ def _get_insight(uc) -> str | None:
                 _UsageLog.timestamp <= end
             ).order_by(_UsageLog.timestamp).all()
 
+            categories = _AppCategory.query.all() if privacy_mode else []
             dd: dict[str, int] = defaultdict(int)
             for i in range(len(logs)):
                 if i < len(logs) - 1:
@@ -139,7 +165,8 @@ def _get_insight(uc) -> str | None:
                 else:
                     dur = logs[i].duration or 0
                 if 0 < dur < 7200:
-                    dd[logs[i].app_name] += dur
+                    name = _category_for(logs[i].app_name, categories) if privacy_mode else logs[i].app_name
+                    dd[name] += dur
 
             top_apps = sorted(dd.items(), key=lambda x: -x[1])[:20]
             if not top_apps:
@@ -148,7 +175,7 @@ def _get_insight(uc) -> str | None:
             devices = _DeviceStatusData.query.all()
             device_names = [dev.show_name or dev.id for dev in devices if dev.using]
 
-            stats_text = _format_stats(top_apps, device_names, max_days)
+            stats_text = _format_stats(top_apps, device_names, max_days, privacy_mode)
 
         return _call_llm(uc, stats_text)
     except Exception as e:
@@ -156,8 +183,20 @@ def _get_insight(uc) -> str | None:
         return None
 
 
-def _format_stats(top_apps: list, devices: list[str], days: int) -> str:
-    lines = [f'最近{days}天使用统计：']
+def _category_for(app_name: str, categories: list) -> str:
+    app_lower = (app_name or '').lower()
+    for cat in categories:
+        pattern = (cat.pattern or '').lower()
+        if pattern and pattern in app_lower:
+            return cat.category or '未分类'
+    return '未分类'
+
+
+def _format_stats(top_apps: list, devices: list[str], days: int, privacy_mode: bool = False) -> str:
+    if privacy_mode:
+        lines = [f'最近{days}天使用统计（隐私分析模式：数据已按分类汇总，未包含具体应用名或设备名）：']
+    else:
+        lines = [f'最近{days}天使用统计：']
     total = sum(a[1] for a in top_apps)
     if total > 0:
         lines.append(f'总使用时长：{total // 3600}小时{(total % 3600) // 60}分钟')
@@ -166,7 +205,10 @@ def _format_stats(top_apps: list, devices: list[str], days: int) -> str:
         m = (secs % 3600) // 60
         lines.append(f'- {name}: {h}小时{m}分钟')
     if devices:
-        lines.append(f'活跃设备：{", ".join(devices)}')
+        if privacy_mode:
+            lines.append(f'活跃设备数量：{len(devices)}')
+        else:
+            lines.append(f'活跃设备：{", ".join(devices)}')
     return '\n'.join(lines)
 
 

@@ -770,9 +770,6 @@ class PluginInit:
         for plugin_name in self.c.plugins_enabled:
             # 加载单个插件
             try:
-                if plugin_name == 'llm_analysis' and not self._llm_analysis_enabled():
-                    l.info('[plugin] skip llm_analysis because no LLM API key is configured')
-                    continue
                 if not os.path.isfile(u.get_path(f'plugins/{plugin_name}/__init__.py')):
                     l.warning(f'[plugin] Invaild plugin {plugin_name}! it doesn\'t exist!')
                     continue
@@ -802,17 +799,7 @@ class PluginInit:
         l.info(f'{loaded_count} plugin{"s" if loaded_count > 1 else ""} enabled: {loaded_names}' if loaded_count > 0 else f'No plugins enabled.')
 
     def _llm_analysis_enabled(self) -> bool:
-        cfg = self.c.plugin.get('llm_analysis', {})
-        if cfg.get('api_key') or cfg.get('llm_api_key'):
-            return True
-        try:
-            from data import _UserConfig
-            with self.app.app_context():
-                uc = _UserConfig.query.first()
-                return bool(uc and uc.llm_enabled and uc.llm_api_key)
-        except Exception as e:
-            l.warning(f'[plugin] failed to check llm_analysis config: {e}')
-            return False
+        return True
 
     def _register_route(self, rule: str, endpoint: str, view_func: t.Callable, options: dict[str, t.Any]):
         '''

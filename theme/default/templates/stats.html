@@ -1,11 +1,11 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ page_title }}</title>
     <link rel="icon" href="{{ page_favicon }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='main.css') }}?v=4">
+    <link rel="stylesheet" href="{{ url_for('static', filename='main.css') }}?v=7">
     {% if page_background %}
     <style>body { background-image: url('{{ page_background }}'); }</style>
     {% endif %}
@@ -106,7 +106,7 @@
             }
 
             const categoryMap = {};
-            const colors = ['#3b82f6', '#22c55e', '#eab308', '#ef4444', '#06b6d4', '#10b981', '#f97316', '#a855f7'];
+            const colors = ['#d99a27', '#a8751e', '#f0b445', '#6f5b34', '#49b86a', '#8f8a7e', '#d35f5f', '#c6b89a'];
             let ci = 0;
             apps.forEach(a => {
                 const cat = a.category || '未分类';
@@ -132,7 +132,7 @@
                         data: values,
                         backgroundColor: bgColors,
                         borderWidth: 2,
-                        borderColor: '#141414'
+                        borderColor: 'rgba(7,7,7,0.72)'
                     }]
                 },
                 options: {
@@ -141,7 +141,7 @@
                         legend: {
                             position: 'bottom',
                             labels: {
-                                color: '#9a9a9a',
+                                color: getComputedStyle(document.body).getPropertyValue('--text-secondary').trim() || '#8f8a7e',
                                 padding: 16,
                                 font: { size: 12 }
                             }

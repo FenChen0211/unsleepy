@@ -660,6 +660,8 @@ class Data:
         try:
             with self._app.app_context():
                 c = _UserConfig.query.first()
+                plugin_data = _PluginData.query.filter_by(id='llm_analysis').first()
+                llm_privacy_mode = bool((plugin_data.data or {}).get('privacy_mode')) if plugin_data else False
                 if not c:
                     return {
                         'page_background_url': '',
@@ -682,7 +684,8 @@ class Data:
                         'llm_system_prompt': '',
                         'llm_cache_minutes': 60,
                         'llm_max_analysis_days': 14,
-                        'llm_rate_limit_minutes': 0
+                        'llm_rate_limit_minutes': 0,
+                        'llm_privacy_mode': llm_privacy_mode
                     }
                 mask = '********'
                 api_key_display = mask if c.llm_api_key else ''
@@ -707,10 +710,19 @@ class Data:
                     'llm_system_prompt': c.llm_system_prompt or '',
                     'llm_cache_minutes': c.llm_cache_minutes,
                     'llm_max_analysis_days': c.llm_max_analysis_days,
-                    'llm_rate_limit_minutes': c.llm_rate_limit_minutes
+                    'llm_rate_limit_minutes': c.llm_rate_limit_minutes,
+                    'llm_privacy_mode': llm_privacy_mode
                 }
         except SQLAlchemyError as e:
             self._throw(e)
+
+    def set_llm_privacy_mode(self, enabled: bool):
+        plugin_data = self.get_plugin_data('llm_analysis')
+        plugin_data['privacy_mode'] = bool(enabled)
+        plugin_data.pop('llm_insight', None)
+        plugin_data.pop('llm_insight_time', None)
+        plugin_data.pop('llm_last_call_time', None)
+        self.set_plugin_data('llm_analysis', plugin_data)
 
     def get_user_config_admin(self) -> dict:
         try:

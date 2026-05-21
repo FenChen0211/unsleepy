@@ -6,12 +6,12 @@
         <title>{{ c.page.name }} - 登录</title>
         <meta name="description" content="登录到管理面板" />
         <link rel="icon" href="{{ c.page.favicon }}" />
-        <link rel="stylesheet" href="{{ url_for('static', filename='main.css') }}" />
-        <link rel="stylesheet" href="{{ url_for('static', filename='login.css') }}" />
-        {% if c.page.background %}
+        <link rel="stylesheet" href="{{ url_for('static', filename='main.css') }}?v=7" />
+        <link rel="stylesheet" href="{{ url_for('static', filename='login.css') }}?v=6" />
+        {% if page_background %}
         <style>
             body {
-                background-image: url('{{ c.page.background }}');
+                background-image: url('{{ page_background }}');
             }
         </style>
         {% endif %}

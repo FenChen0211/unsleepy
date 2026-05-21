@@ -1,11 +1,11 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ page_title }}</title>
     <link rel="icon" href="{{ page_favicon }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='main.css') }}?v=4">
+    <link rel="stylesheet" href="{{ url_for('static', filename='main.css') }}?v=7">
     {% if page_background %}
     <style>body { background-image: url('{{ page_background }}'); }</style>
     {% endif %}
@@ -32,15 +32,15 @@
                     <br/><span style="color: var(--text-secondary); font-size: 0.85em;">总小时</span>
                 </div>
                 <div>
-                    <span style="font-size: 2em; font-weight: 600; color: #22c55e;" id="ov-active-days">--</span>
+                    <span style="font-size: 2em; font-weight: 600; color: var(--success);" id="ov-active-days">--</span>
                     <br/><span style="color: var(--text-secondary); font-size: 0.85em;">活跃天数</span>
                 </div>
                 <div>
-                    <span style="font-size: 2em; font-weight: 600; color: #eab308;" id="ov-top-app">--</span>
+                    <span style="font-size: 2em; font-weight: 600; color: var(--accent);" id="ov-top-app">--</span>
                     <br/><span style="color: var(--text-secondary); font-size: 0.85em;">最常用</span>
                 </div>
                 <div>
-                    <span style="font-size: 2em; font-weight: 600; color: #ef4444;" id="ov-apps-count">--</span>
+                    <span style="font-size: 2em; font-weight: 600; color: var(--danger);" id="ov-apps-count">--</span>
                     <br/><span style="color: var(--text-secondary); font-size: 0.85em;">应用总数</span>
                 </div>
             </div>
@@ -94,7 +94,7 @@
 
             const listEl = document.getElementById('annual-toplist');
             const top10 = apps.slice(0, 10);
-            const colors = ['#3b82f6', '#22c55e', '#eab308', '#ef4444', '#06b6d4', '#a855f7', '#f97316', '#10b981', '#ec4899', '#6366f1'];
+            const colors = ['#d99a27', '#a8751e', '#f0b445', '#6f5b34', '#49b86a', '#8f8a7e', '#d35f5f', '#c6b89a', '#735f37', '#b48a3a'];
             listEl.innerHTML = top10.map((a, i) => {
                 const h = Math.floor(a.seconds / 3600);
                 const m = Math.floor((a.seconds % 3600) / 60);
@@ -113,7 +113,7 @@
         function drawCategoryChart(apps, total) {
             const ctx = document.getElementById('annual-category-chart');
             const catMap = {};
-            const colorList = ['#3b82f6', '#22c55e', '#eab308', '#ef4444', '#06b6d4', '#10b981', '#f97316', '#a855f7'];
+            const colorList = ['#d99a27', '#a8751e', '#f0b445', '#6f5b34', '#49b86a', '#8f8a7e', '#d35f5f', '#c6b89a'];
             let ci = 0;
             apps.forEach(a => {
                 const cat = a.category || '未分类';
@@ -133,7 +133,7 @@
                         data: values,
                         backgroundColor: bgColors,
                         borderWidth: 2,
-                        borderColor: '#141414'
+                        borderColor: 'rgba(7,7,7,0.72)'
                     }]
                 },
                 options: {
@@ -142,7 +142,7 @@
                         legend: {
                             position: 'bottom',
                             labels: {
-                                color: '#9a9a9a',
+                                color: getComputedStyle(document.body).getPropertyValue('--text-secondary').trim() || '#8f8a7e',
                                 padding: 14,
                                 font: { size: 12 }
                             }
