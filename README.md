@@ -31,7 +31,7 @@ unsleepy 是一个用于 ~~视奸~~ 查看个人在线状态，并**分析你的
 ### 本地运行
 
 ```bash
-git clone https://github.com/your-name/sleepy-board.git
+git clone https://github.com/FenChen0211/unsleepy
 cd sleepy-board
 
 uv sync
