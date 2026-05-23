@@ -105,7 +105,25 @@ copy config.example.json config.json
 python client/win_device.py
 ```
 
-其他示例客户端位于 `client/` 目录，可按需要自行调整服务端地址和密钥。
+> 这些客户端来自原项目 [sleepy-project/sleepy](https://github.com/sleepy-project/sleepy)，本仓库未做修改。
+
+各平台客户端速查：
+
+| 平台 | 脚本 | 说明 |
+|------|------|------|
+| **Windows** | `win_device.py` | 基础版，需 Python，支持媒体/电池/空闲检测 |
+| | `win_device_ds.py` | 增强版，系统托盘 + 异步 HTTP |
+| | `Win_Simple/script.py` | 轻量版，可用 PyInstaller 打包 exe，无需 Python |
+| | `Sleepy.Powershell.ps1` | 纯 PowerShell，无需 Python |
+| **Android** | `autoxjs_device.js` | AutoX.js 常驻循环版，无需 Root |
+| | `autoxjs_device_gemini.js` | AutoX.js 亮屏触发版，带去重保护 |
+| | `autoxjs_device_once_gemini.js` | AutoX.js 定时任务版，变化时上报 |
+| | `magisk/service.sh` | Magisk 模块，需 Root |
+| **Linux** | `linux_device_kde.py` | KDE Plasma，需 kdotool |
+| | `linux_device_hyprland.sh` | Hyprland，纯 Bash |
+| **浏览器** | `browser-script.user.js` | Tampermonkey / Violentmonkey 用户脚本 |
+| **其他** | `mc_script.py` | Minecraft 游戏内状态（需 Minescript） |
+| | `zhixue.py` | 智学网成绩抓取上报 |
 
 ## 常用页面
 
