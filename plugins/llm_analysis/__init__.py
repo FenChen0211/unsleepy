@@ -75,23 +75,49 @@ def llm_insight_card():
     if not uc.llm_api_key:
         return '''
         <h2>AI 洞察</h2>
-        <div id="llm-content" style="font-size: 0.9em; line-height: 1.7; text-align: left; min-height: 40px; color: var(--text-secondary);">
+        <div class="llm-insight-box" style="font-size: 0.9em; line-height: 1.7; text-align: left; min-height: 40px; color: var(--text-secondary);">
             <p>LLM 分析已开启，但还没有配置 API Key 和 API Base URL。</p>
             <p>请到后台「用户配置 / LLM 分析 / API 配置」填写后再使用。</p>
             <a class="btn btn-primary" href="/panel" style="display: inline-flex; width: auto; margin-top: 10px;">去后台配置</a>
         </div>
         '''
     return '''
-    <h2>AI 洞察</h2>
-    <div id="llm-content" style="font-size: 0.9em; line-height: 1.7; text-align: left; min-height: 40px; color: var(--text-secondary);">
-        <p>加载中...</p>
+    <div class="llm-insight-card" data-llm-insight-card>
+        <h2>AI 洞察</h2>
+        <div data-llm-content style="font-size: 0.9em; line-height: 1.7; text-align: left; min-height: 40px; color: var(--text-secondary);">
+            <p>正在请求 AI 分析...</p>
+        </div>
+        <button class="btn btn-secondary" data-llm-refresh style="width: auto; margin-top: 10px;">刷新分析</button>
     </div>
     <script>
-    fetch('/api/plugin/llm_analysis/insight').then(function(r){ return r.json(); }).then(function(d){
-        document.getElementById('llm-content').textContent = d.insight || '暂无分析数据';
-    }).catch(function(){
-        document.getElementById('llm-content').innerHTML = '<p style="color: var(--text-muted);">AI 分析暂时不可用</p>';
-    });
+    (function(){
+        var script = document.currentScript;
+        var card = script ? script.previousElementSibling : document.querySelector('[data-llm-insight-card]');
+        if (!card) return;
+        var content = card.querySelector('[data-llm-content]');
+        var refresh = card.querySelector('[data-llm-refresh]');
+        function setText(text) {
+            if (content) content.textContent = text || '暂无可展示的 AI 分析结果';
+        }
+        function loadInsight(force) {
+            if (!content) return;
+            content.textContent = force ? '正在刷新 AI 分析...' : '正在请求 AI 分析...';
+            fetch('/api/plugin/llm_analysis/insight' + (force ? '?refresh=1' : ''))
+                .then(function(r){ return r.json(); })
+                .then(function(d){
+                    if (d.success === false) {
+                        setText(d.message || d.insight || 'AI 分析暂时不可用，请检查后台 API Key、Base URL 和模型名称。');
+                    } else {
+                        setText(d.insight || '暂无可分析数据。请等待客户端上报使用记录，或稍后刷新。');
+                    }
+                })
+                .catch(function(){
+                    setText('AI 分析暂时不可用，请检查网络、后台 API 配置或服务日志。');
+                });
+        }
+        if (refresh) refresh.addEventListener('click', function(){ loadInsight(true); });
+        loadInsight(false);
+    })();
     </script>
     '''
 
@@ -130,57 +156,81 @@ def llm_insight_api():
     if cached and (time.time() - cache_time < cache_minutes * 60):
         return flask.jsonify({'success': True, 'insight': cached})
 
-    insight = _get_insight(uc)
-    if insight:
-        p.set_data('llm_insight', insight)
-        p.set_data('llm_insight_time', time.time())
-        p.set_data('llm_last_call_time', time.time())
-    return flask.jsonify({'success': True, 'insight': insight or '暂无分析数据'})
+    try:
+        insight = _get_insight(uc)
+    except Exception as e:
+        l.warning(f'[llm_analysis] failed: {e}')
+        return flask.jsonify({
+            'success': False,
+            'message': 'AI 分析暂时不可用，请检查后台 API Key、Base URL、模型名称或服务日志。'
+        })
+    if not insight:
+        return flask.jsonify({'success': True, 'insight': '暂无可分析数据。请等待客户端上报使用记录，或稍后刷新。'})
+    p.set_data('llm_insight', insight)
+    p.set_data('llm_insight_time', time.time())
+    p.set_data('llm_last_call_time', time.time())
+    return flask.jsonify({'success': True, 'insight': insight})
 
 
 def _get_insight(uc) -> str | None:
     from data import _UsageLog, _DeviceStatusData, _AppCategory
     from datetime import datetime, timedelta
     from collections import defaultdict
-    try:
-        import flask
-        app = flask.current_app
-        with app.app_context():
-            max_days = uc.llm_max_analysis_days if uc else 14
-            max_days = max(1, min(max_days, 90))
-            privacy_mode = bool(getattr(uc, 'llm_privacy_mode', _get_privacy_mode(False)))
+    import flask
+    app = flask.current_app
+    with app.app_context():
+        max_days = uc.llm_max_analysis_days if uc else 14
+        max_days = max(1, min(max_days, 90))
+        privacy_mode = bool(getattr(uc, 'llm_privacy_mode', _get_privacy_mode(False)))
 
-            end = datetime.utcnow()
-            start = end - timedelta(days=max_days)
-            logs = _UsageLog.query.filter(
-                _UsageLog.timestamp >= start,
-                _UsageLog.timestamp <= end
-            ).order_by(_UsageLog.timestamp).all()
+        end = datetime.utcnow()
+        start = end - timedelta(days=max_days)
+        logs = _UsageLog.query.filter(
+            _UsageLog.timestamp >= start,
+            _UsageLog.timestamp <= end
+        ).order_by(_UsageLog.timestamp).all()
 
-            categories = _AppCategory.query.all() if privacy_mode else []
-            dd: dict[str, int] = defaultdict(int)
-            for i in range(len(logs)):
-                if i < len(logs) - 1:
-                    dur = int((logs[i + 1].timestamp - logs[i].timestamp).total_seconds())
-                else:
-                    dur = logs[i].duration or 0
-                if 0 < dur < 7200:
-                    name = _category_for(logs[i].app_name, categories) if privacy_mode else logs[i].app_name
-                    dd[name] += dur
+        categories = _AppCategory.query.all() if privacy_mode else []
+        dd: dict[str, int] = defaultdict(int)
+        for i in range(len(logs)):
+            if i < len(logs) - 1:
+                dur = int((logs[i + 1].timestamp - logs[i].timestamp).total_seconds())
+            else:
+                dur = logs[i].duration or 0
+            if 0 < dur < 7200:
+                name = _category_for(logs[i].app_name, categories) if privacy_mode else logs[i].app_name
+                dd[name] += dur
 
-            top_apps = sorted(dd.items(), key=lambda x: -x[1])[:20]
-            if not top_apps:
-                return None
+        top_apps = sorted(dd.items(), key=lambda x: -x[1])[:20]
+        if not top_apps:
+            top_apps = _aggregated_fallback(max_days, privacy_mode)
+        if not top_apps:
+            return None
 
-            devices = _DeviceStatusData.query.all()
-            device_names = [dev.show_name or dev.id for dev in devices if dev.using]
+        devices = _DeviceStatusData.query.all()
+        device_names = [dev.show_name or dev.id for dev in devices if dev.using]
 
-            stats_text = _format_stats(top_apps, device_names, max_days, privacy_mode)
+        stats_text = _format_stats(top_apps, device_names, max_days, privacy_mode)
 
-        return _call_llm(uc, stats_text)
-    except Exception as e:
-        l.warning(f'[llm_analysis] failed: {e}')
-        return None
+    return _call_llm(uc, stats_text)
+
+
+def _aggregated_fallback(max_days: int, privacy_mode: bool) -> list:
+    period = 'today'
+    if max_days > 31:
+        period = 'year'
+    elif max_days > 7:
+        period = 'month'
+    elif max_days > 1:
+        period = 'week'
+    apps = pl.PluginInit.instance.d.get_aggregated_usage(period)
+    dd: dict[str, int] = {}
+    for app in apps:
+        key = app.get('category') if privacy_mode else app.get('app_name')
+        if not key:
+            key = '未分类' if privacy_mode else '未知应用'
+        dd[key] = dd.get(key, 0) + int(app.get('seconds') or 0)
+    return sorted(dd.items(), key=lambda x: -x[1])[:20]
 
 
 def _category_for(app_name: str, categories: list) -> str:
