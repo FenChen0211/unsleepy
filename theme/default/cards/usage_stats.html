@@ -10,6 +10,10 @@
     <button class="btn btn-secondary" id="stats-btn-month">本月</button>
 </div>
 <div id="stats-usage-list" style="text-align: left; min-height: 40px;"></div>
+<div style="display: flex; gap: 6px; justify-content: center; margin: 12px 0 4px;">
+    <button class="btn btn-secondary" id="stats-chart-app">应用占比</button>
+    <button class="btn btn-primary" id="stats-chart-category">分类占比</button>
+</div>
 <div style="max-width: 240px; margin: 10px auto 0;">
     <canvas id="stats-category-chart"></canvas>
 </div>
@@ -23,6 +27,12 @@
         week: document.getElementById('stats-btn-week'),
         month: document.getElementById('stats-btn-month')
     };
+    const chartBtns = {
+        app: document.getElementById('stats-chart-app'),
+        category: document.getElementById('stats-chart-category')
+    };
+    const fallbackColors = ['#d99a27','#a8751e','#f0b445','#6f5b34','#49b86a','#8f8a7e','#d35f5f','#c6b89a'];
+    const useCustomChartColors = {{ 'true' if chart_use_custom_colors else 'false' }};
 
     function setActive(p) {
         Object.keys(btns).forEach(k => {
@@ -36,6 +46,46 @@
         return d.innerHTML;
     }
 
+    function setChartMode(mode) {
+        currentChartMode = mode;
+        chartBtns.app.className = mode === 'app' ? 'btn btn-primary' : 'btn btn-secondary';
+        chartBtns.category.className = mode === 'category' ? 'btn btn-primary' : 'btn btn-secondary';
+        drawChart(currentApps);
+    }
+
+    function colorForIndex(index) {
+        return fallbackColors[index % fallbackColors.length];
+    }
+
+    function buildChartItems(apps) {
+        if (currentChartMode === 'app') {
+            return apps.map((a, index) => ({
+                name: a.app_name || '未知应用',
+                seconds: a.seconds || 0,
+                color: useCustomChartColors ? (a.category_color || colorForIndex(index)) : colorForIndex(index)
+            }));
+        }
+
+        const catMap = {};
+        let ci = 0;
+        apps.forEach(a => {
+            const cat = a.category || '未分类';
+            if (!catMap[cat]) {
+                catMap[cat] = {
+                    seconds: 0,
+                    color: useCustomChartColors ? (a.category_color || colorForIndex(ci)) : colorForIndex(ci)
+                };
+                ci++;
+            }
+            catMap[cat].seconds += a.seconds || 0;
+        });
+        return Object.keys(catMap).map(name => ({
+            name: name,
+            seconds: catMap[name].seconds,
+            color: catMap[name].color
+        }));
+    }
+
     function drawChart(apps) {
         const ctx = document.getElementById('stats-category-chart');
         const emptyEl = document.getElementById('stats-chart-empty');
@@ -47,14 +97,12 @@
             return;
         }
 
-        const catMap = {};
-        const colors = ['#d99a27','#a8751e','#f0b445','#6f5b34','#49b86a','#8f8a7e','#d35f5f','#c6b89a'];
-        let ci = 0;
-        apps.forEach(a => {
-            const cat = a.category || '未分类';
-            if (!catMap[cat]) { catMap[cat] = { sec: 0, color: colors[ci % colors.length] }; ci++; }
-            catMap[cat].sec += a.seconds;
-        });
+        const chartItems = buildChartItems(apps).filter(item => item.seconds > 0);
+        if (chartItems.length === 0) {
+            emptyEl.style.display = 'block';
+            ctx.style.display = 'none';
+            return;
+        }
 
         emptyEl.style.display = 'none';
         ctx.style.display = 'block';
@@ -63,10 +111,10 @@
         chartInst = new Chart(ctx, {
             type: 'doughnut',
             data: {
-                labels: Object.keys(catMap),
+                labels: chartItems.map(item => item.name),
                 datasets: [{
-                    data: Object.values(catMap).map(c => c.sec),
-                    backgroundColor: Object.values(catMap).map(c => c.color),
+                    data: chartItems.map(item => item.seconds),
+                    backgroundColor: chartItems.map(item => item.color),
                     borderWidth: 1.5,
                     borderColor: style.getPropertyValue('--bg-glass').trim().replace(/rgba?\(.*\)/,'') || 'transparent'
                 }]
@@ -102,6 +150,8 @@
 
     let currentPer = 'today';
     let currentDev = '';
+    let currentChartMode = 'category';
+    let currentApps = [];
 
     async function load(period) {
         currentPer = period;
@@ -118,16 +168,19 @@
             apps = data.apps || [];
         } catch(e) {
             listEl.innerHTML = '<p style="color: var(--text-muted); text-align: center; font-size: 0.85em;">加载失败</p>';
+            currentApps = [];
             drawChart([]);
             return;
         }
 
         if (apps.length === 0) {
             listEl.innerHTML = '<p style="color: var(--text-muted); text-align: center; font-size: 0.85em;">暂无数据，等待客户端推送后自动统计</p>';
+            currentApps = [];
             drawChart([]);
             return;
         }
 
+        currentApps = apps;
         const total = apps.reduce((s, a) => s + a.seconds, 0);
         listEl.innerHTML = apps.slice(0, 8).map(a => {
             const pct = total > 0 ? (a.seconds / total * 100).toFixed(1) : 0;
@@ -156,6 +209,8 @@
         btns.today.addEventListener('click', function(){ load('today'); });
         btns.week.addEventListener('click', function(){ load('week'); });
         btns.month.addEventListener('click', function(){ load('month'); });
+        chartBtns.app.addEventListener('click', function(){ setChartMode('app'); });
+        chartBtns.category.addEventListener('click', function(){ setChartMode('category'); });
 
         const devSel = document.getElementById('stats-device-sel');
         devSel.addEventListener('change', function() { currentDev = this.value; load(currentPer); });

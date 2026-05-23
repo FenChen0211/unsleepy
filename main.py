@@ -406,7 +406,8 @@ def index():
     # 加载使用统计卡片
     stats_card = render_template(
         'usage_stats.html',
-        _dirname='cards'
+        _dirname='cards',
+        chart_use_custom_colors=uc.get('chart_use_custom_colors', False)
     )
 
     # 加载热力图卡片
@@ -1237,6 +1238,8 @@ def api_user_config():
                         setattr(uc, k, bool(body[k]))
                 if 'llm_privacy_mode' in body:
                     d.set_llm_privacy_mode(bool(body['llm_privacy_mode']))
+                if 'chart_use_custom_colors' in body:
+                    d.set_ui_preference('chart_use_custom_colors', bool(body['chart_use_custom_colors']))
                 db.session.commit()
             return {'success': True, 'config': d.get_user_config()}
         except Exception as e:

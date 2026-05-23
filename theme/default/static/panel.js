@@ -313,7 +313,9 @@ async function loadConfig() {
         { title: '外观', items: [
             { type: 'text', key: 'page_background_url', name: '背景图片URL',
               desc: '设置后前台和后台页面使用该图片作为背景。留空则使用纯黑背景。填写完整URL如 https://img.example.com/bg.jpg',
-              val: c.page_background_url || '', placeholder: 'https://...', max: 512 }
+              val: c.page_background_url || '', placeholder: 'https://...', max: 512 },
+            { type: 'bool', key: 'chart_use_custom_colors', name: '环图使用自定义颜色',
+              desc: '关闭时使用前端默认环图色板；开启后环状图优先使用应用分类规则里设置的颜色。相同分类合并后使用该分类第一次匹配到的颜色' }
         ]},
         { title: '专注模式', items: [
             { type: 'number', key: 'focus_default_minutes', name: '默认时长（分钟）',

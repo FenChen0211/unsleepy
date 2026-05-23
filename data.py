@@ -628,6 +628,13 @@ class Data:
                 return cat.category
         return '未分类'
 
+    def _match_category_info(self, app_name: str, categories: list[_AppCategory]) -> tuple[str, str]:
+        app_lower = app_name.lower()
+        for cat in categories:
+            if cat.pattern.lower() in app_lower:
+                return cat.category, cat.color
+        return '未分类', '#8f8a7e'
+
     def categorize_app(self, app_name: str) -> str:
         '''
         根据分类规则匹配应用名，返回分类标签
@@ -662,6 +669,8 @@ class Data:
                 c = _UserConfig.query.first()
                 plugin_data = _PluginData.query.filter_by(id='llm_analysis').first()
                 llm_privacy_mode = bool((plugin_data.data or {}).get('privacy_mode')) if plugin_data else False
+                ui_data = _PluginData.query.filter_by(id='ui_preferences').first()
+                chart_use_custom_colors = bool((ui_data.data or {}).get('chart_use_custom_colors')) if ui_data else False
                 if not c:
                     return {
                         'page_background_url': '',
@@ -685,7 +694,8 @@ class Data:
                         'llm_cache_minutes': 60,
                         'llm_max_analysis_days': 14,
                         'llm_rate_limit_minutes': 0,
-                        'llm_privacy_mode': llm_privacy_mode
+                        'llm_privacy_mode': llm_privacy_mode,
+                        'chart_use_custom_colors': chart_use_custom_colors
                     }
                 mask = '********'
                 api_key_display = mask if c.llm_api_key else ''
@@ -711,7 +721,8 @@ class Data:
                     'llm_cache_minutes': c.llm_cache_minutes,
                     'llm_max_analysis_days': c.llm_max_analysis_days,
                     'llm_rate_limit_minutes': c.llm_rate_limit_minutes,
-                    'llm_privacy_mode': llm_privacy_mode
+                    'llm_privacy_mode': llm_privacy_mode,
+                    'chart_use_custom_colors': chart_use_custom_colors
                 }
         except SQLAlchemyError as e:
             self._throw(e)
@@ -723,6 +734,11 @@ class Data:
         plugin_data.pop('llm_insight_time', None)
         plugin_data.pop('llm_last_call_time', None)
         self.set_plugin_data('llm_analysis', plugin_data)
+
+    def set_ui_preference(self, key: str, value: Any):
+        plugin_data = self.get_plugin_data('ui_preferences')
+        plugin_data[key] = value
+        self.set_plugin_data('ui_preferences', plugin_data)
 
     def get_user_config_admin(self) -> dict:
         try:
@@ -830,9 +846,13 @@ class Data:
                 rows: list[_AggregatedUsage] = _AggregatedUsage.query.filter_by(
                     period=period
                 ).order_by(_AggregatedUsage.total_seconds.desc()).all()
+                category_colors: dict[str, str] = {}
+                for cat in _AppCategory.query.order_by(_AppCategory.id.asc()).all():
+                    category_colors.setdefault(cat.category, cat.color)
                 return [{
                     'app_name': r.app_name,
                     'category': r.category,
+                    'category_color': category_colors.get(r.category, '#8f8a7e'),
                     'seconds': r.total_seconds,
                     'computed_at': r.computed_at.isoformat() if r.computed_at else None
                 } for r in rows]
@@ -886,16 +906,11 @@ class Data:
                 dur = logs[i].duration or int((end - logs[i].timestamp).total_seconds())
             if 0 < dur < 7200:
                 dd[logs[i].app_name] += dur
-        cats = {c.pattern.lower(): c for c in _AppCategory.query.all()}
+        cats = _AppCategory.query.order_by(_AppCategory.id.asc()).all()
         result = []
         for app_name, secs in sorted(dd.items(), key=lambda x: -x[1]):
-            cat = '未分类'
-            nl = app_name.lower()
-            for p, c in cats.items():
-                if p in nl:
-                    cat = c.category
-                    break
-            result.append({'app_name': app_name, 'category': cat, 'seconds': secs, 'computed_at': None})
+            cat, color = self._match_category_info(app_name, cats)
+            result.append({'app_name': app_name, 'category': cat, 'category_color': color, 'seconds': secs, 'computed_at': None})
         return result
 
     def get_device_names(self) -> list[str]:
