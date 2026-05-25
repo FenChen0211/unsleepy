@@ -457,7 +457,9 @@ def index():
         else:
             injects.append(str(i))
 
-    evt = p.trigger_event(pl.IndexAccessEvent(page_title=c.page.title, page_desc=c.page.desc, page_favicon=c.page.favicon, page_background=d.get_user_config().get('page_background_url') or c.page.background, cards=cards, injects=injects))
+    display_page_title = f'{display_name} Alive?'
+    display_page_desc = f"{display_name}'s Online Status Page"
+    evt = p.trigger_event(pl.IndexAccessEvent(page_title=display_page_title, page_desc=display_page_desc, page_favicon=c.page.favicon, page_background=d.get_user_config().get('page_background_url') or c.page.background, cards=cards, injects=injects))
 
     if evt.interception:
         return evt.interception
